@@ -12,14 +12,14 @@ function cleanReview(proposal,value){
     if(typeof p.googlePlaceId==='string'&&/^[A-Za-z0-9_-]{1,255}$/.test(p.googlePlaceId))locations[id]={googlePlaceId:p.googlePlaceId,address,lat:null,lng:null};
     else if(validPoint(p))locations[id]={lat:p.lat,lng:p.lng,address};
   }
-  return {proposalId:proposal.id,selected,locations,scopeDate:String(value.scopeDate||'').slice(0,10),expanded:Boolean(value.expanded),savedAt:value.savedAt};
+  return {proposalId:proposal.id,selected,locations,scopeDate:String(value.scopeDate||'').slice(0,10),expanded:Boolean(value.expanded),savedAt:value.savedAt,policyVersion:value.policyVersion===2?2:1};
 }
 export function readReview(storage,user,trip,proposal,now=Date.now()){
   const key=keyFor(user,trip,proposal.id),raw=storage.getItem(key);if(!raw)return null;
   try{if(raw.length>30000)throw Error('oversized');const value=JSON.parse(raw);if(!Number.isFinite(value.savedAt)||now-value.savedAt>7*86400000||value.savedAt>now+60000){storage.removeItem(key);return null;}return cleanReview(proposal,value);}catch{storage.removeItem(key);return null;}
 }
 export function writeReview(storage,user,trip,proposal,value,now=Date.now()){
-  const cleaned=cleanReview(proposal,{...value,proposalId:proposal.id,savedAt:now});if(!cleaned)throw Error('검토 상태를 저장하지 못했어요.');
+  const cleaned=cleanReview(proposal,{...value,proposalId:proposal.id,savedAt:now,policyVersion:2});if(!cleaned)throw Error('검토 상태를 저장하지 못했어요.');
   storage.setItem(keyFor(user,trip,proposal.id),JSON.stringify(cleaned));
 }
 export function removeReview(storage,user,trip,proposalId){storage.removeItem(keyFor(user,trip,proposalId));}

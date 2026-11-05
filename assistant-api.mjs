@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { applyPlannerChanges, generatePlan, selectPlannerChanges } from './ai-planner.mjs';
 import { daysBetween } from './public/domain.js';
+import {needsCompletedReview} from './public/assistant-review.js';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function assistantError(error){
   const messages={AI_BUSY:[409,'추천을 만들고 있어요. 잠시 기다려주세요.'],AI_LIMIT:[429,'오늘의 AI 추천 횟수를 모두 사용했어요. 내일 다시 이용해주세요.'],AI_CHAT_CONFLICT:[409,'다른 화면에서 대화나 제안이 변경됐어요. 대화를 다시 불러와주세요.'],TRAVEL_CONFLICT:[409,'동행이 일정을 변경했어요. 최신 일정을 기준으로 다시 제안해달라고 요청해주세요.'],TRAVEL_FORBIDDEN:[403,'이 여행에 접근할 권한이 없습니다.']};
@@ -27,7 +28,8 @@ export function createAssistantApi({admin,readBody,generate=generatePlan}){
       if(!proposal||proposal.id!==body.proposalId||conversation.version!==body.version)fail(409,'적용할 제안이 변경됐어요. 대화를 다시 불러와주세요.');
       if(proposal.baseVersion!==trip.version)fail(409,'동행이 일정을 변경했어요. 최신 일정을 기준으로 다시 제안해달라고 요청해주세요.');
       const {id,owner,members,updated,version,...document}=structuredClone(trip);
-      applyPlannerChanges(document,selectPlannerChanges(proposal,body),user);
+      const checked={...proposal,changes:proposal.changes.map(c=>({...c,requiresCompletedConfirmation:needsCompletedReview(c,trip)}))};
+      applyPlannerChanges(document,selectPlannerChanges(checked,body),user);
       return json(await command('apply',trip,user,{p_request:proposal.id,p_expected:conversation.version,p_trip_version:proposal.baseVersion,p_document:document}));
     }
     if(parts[3])fail(404,'없는 AI 기능입니다.');

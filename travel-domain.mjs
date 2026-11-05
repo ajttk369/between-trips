@@ -64,6 +64,12 @@ export function cleanItem(kind, input, doc, actor, old) {
     try { item.attachments = cleanAttachments(input.attachments ?? old?.attachments ?? []); }
     catch (error) { fail(400,error.message); }
   }
+  if(['places','itinerary'].includes(kind)){
+    item.aiSuggestion=text(input.aiSuggestion??old?.aiSuggestion,3000);
+    const aiSources=input.aiSources??old?.aiSources??[];
+    if(!Array.isArray(aiSources)||aiSources.length>3)fail(400,'추천 출처를 확인해주세요.');
+    item.aiSources=[...new Set(aiSources.map(value=>link(value)).filter(Boolean))];
+  }
   return item;
 }
 
