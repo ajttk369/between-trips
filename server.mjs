@@ -229,7 +229,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       else file = path.join(root, 'public', url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname));
       const allowed = file.startsWith(path.join(root, 'public') + path.sep) || file.startsWith(path.join(root, 'node_modules', 'leaflet', 'dist') + path.sep);
       if (!allowed || !existsSync(file)) fail(404, '파일을 찾을 수 없습니다.');
-      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
       res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': url.pathname.startsWith('/vendor/') ? 'public, max-age=86400' : 'no-cache' }); res.end(req.method === 'HEAD' ? undefined : readFileSync(file));
     } catch (error) {
       if (res.headersSent) return res.end();

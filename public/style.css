@@ -1,3 +1,10 @@
+@font-face {
+  font-family:"SUIT";
+  src:url("/fonts/SUIT-Variable.woff2") format("woff2");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
 :root {
   --bg:#f8f9fb;
   --paper:#fff;
@@ -10,7 +17,7 @@
   --cream:#f9f6ef;
   --green:#2e6851;
   --radius:18px;
-  font-family:"Pretendard","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+  font-family:"SUIT",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;
   color:var(--ink);
   background:var(--bg);
   font-size:14px;
@@ -63,11 +70,11 @@ h1,h2,h3,h4,p {
 }
 h1,h2,h3,h4 {
   line-height:1.35;
-  letter-spacing:-.055em
+  letter-spacing:-.025em
 }
 h1 {
   font-size:32px;
-  font-weight:750
+  font-weight:700
 }
 h2 {
   font-size:24px
@@ -86,8 +93,8 @@ h4 {
 }
 .eyebrow {
   font-size:11px;
-  letter-spacing:2px;
-  font-weight:700;
+  letter-spacing:.035em;
+  font-weight:600;
   color:var(--blue)
 }
 .row {
@@ -456,13 +463,13 @@ h4 {
   font-size:32px;
   line-height:1.5;
   margin:13px 0 10px;
-  letter-spacing:-1.5px;
-  font-weight:650
+  letter-spacing:-.025em;
+  font-weight:700
 }
 .hero-copy p {
-  font-size:12px;
-  line-height:1.9;
-  color:#315fa2
+  font-size:14px;
+  line-height:1.85;
+  color:var(--muted)
 }
 .hero-copy .btn {
   margin-top:22px
@@ -1356,15 +1363,15 @@ h4 {
 }
 .auth-story-copy h1 {
   font-size:43px;
-  line-height:1.5;
-  font-weight:650;
-  letter-spacing:-2px
+  line-height:1.35;
+  font-weight:700;
+  letter-spacing:-.03em
 }
 .auth-story-copy p {
-  margin-top:18px;
-  color:#315fa2;
-  font-size:13px;
-  line-height:2
+  margin-top:20px;
+  color:var(--muted);
+  font-size:15px;
+  line-height:1.85
 }
 .auth-story>img {
   position:absolute;
@@ -1402,8 +1409,8 @@ h4 {
 }
 .auth-box>p {
   margin:12px 0 30px;
-  color:#536275;
-  font-size:12px
+  color:var(--muted);
+  font-size:14px
 }
 .auth-tabs {
   display:flex;
@@ -3161,6 +3168,13 @@ body:has(dialog[open]) {
   }
 }
 /* Keep the working itinerary above the fold; secondary text stays neutral. */
+@font-face {
+  font-family:"SUIT";
+  src:url("/fonts/SUIT-Variable.woff2") format("woff2");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
 :root {
   --ink: #252d38;
   --muted: #596473;
@@ -3374,6 +3388,13 @@ body:has(dialog[open]) {
   }
 }
 /* Comfortable reading sizes and controls, including narrow phone screens. */
+@font-face {
+  font-family:"SUIT";
+  src:url("/fonts/SUIT-Variable.woff2") format("woff2");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
 :root {
   font-size:15px
 }
