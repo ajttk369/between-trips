@@ -2,6 +2,7 @@ import { readJsonBody, publicUrl, requestOrigin, secureCookies, contentSecurityP
 import { validateMeta, cleanItem, applyMutation, createDocument } from './travel-domain.mjs';
 export { validateMeta } from './travel-domain.mjs';
 import { createCloudApi } from './supabase-api.mjs';
+import { createAdminApi, createLocalAdminStore } from './admin-api.mjs';
 import http from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, createHash, scrypt, timingSafeEqual } from 'node:crypto';
@@ -77,6 +78,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     res.setHeader('Set-Cookie', `travel_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookies() ? '; Secure' : ''}`);
   };
   const cloud=process.env.STORAGE_BACKEND==='supabase'?createCloudApi({readBody,fetchImpl:cloudFetch,planGenerator,config:{search:Boolean(process.env.GEOAPIFY_API_KEY||process.env.GOOGLE_MAPS_API_KEY),googleMapsBrowserKey:process.env.GOOGLE_MAPS_API_KEY||'',routing:Boolean(process.env.GEOAPIFY_API_KEY),publicUrl:publicUrl(),liveMode:process.env.VERCEL?'poll':'sse',currencies}}):null;
+  const adminApi=createAdminApi({readBody,secret:process.env.SUPABASE_SERVICE_ROLE_KEY||randomBytes(32).toString('hex'),store:cloud?cloud.adminStore:createLocalAdminStore({db,derive,onRename:broadcast})});
   async function api(req, res, url) {
     const method = req.method, parts = url.pathname.split('/').filter(Boolean).slice(1);
     const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
@@ -85,6 +87,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       if (req.headers.origin && req.headers.origin !== expected && req.headers.origin !== requestOrigin(req)) fail(403, '허용되지 않은 요청 출처입니다.');
       if (!req.headers['content-type']?.startsWith('application/json')) fail(415, 'JSON 요청이 필요합니다.');
     }
+    if(parts[0]==='admin')return adminApi(req,res,url);
     if(cloud && !['search','route'].includes(parts[0]))return cloud.handle(req,res,url);
     let user = cloud?await cloud.userOf(req,res):userOf(req);
     if (parts[0] === 'config') return json({ storage:'sqlite', search: Boolean(process.env.GEOAPIFY_API_KEY||process.env.GOOGLE_MAPS_API_KEY), googleMapsBrowserKey:process.env.GOOGLE_MAPS_API_KEY||'', routing: Boolean(process.env.GEOAPIFY_API_KEY), publicUrl: process.env.PUBLIC_URL || '', currencies });

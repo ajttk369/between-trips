@@ -15,6 +15,8 @@ npm start
 
 ## 사용 안내
 
+- [관리자 회원 관리](docs/관리자-사용법.md)
+
 - [Supabase 인증·데이터베이스](docs/SUPABASE-사용법.md)
 - [Vercel 배포](docs/VERCEL-배포방법.md)
 - [Google 지도 연결](docs/Google지도-연결방법.md)

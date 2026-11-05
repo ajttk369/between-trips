@@ -1,4 +1,5 @@
 import { createAssistantApi } from './assistant-api.mjs';
+import { createCloudAdminStore } from './admin-api.mjs';
 import { publicUrl, requestOrigin, secureCookies } from './runtime.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
@@ -178,5 +179,5 @@ export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL,
     applyMutation(doc,body,user);
     return json(await command('save',user,{p_trip:id,p_version:body.version,p_document:doc}));
   }
-  return {handle,userOf,health,close(){for(const s of streams){clearInterval(s.timer);s.res.end();}streams.clear();}};
+  return {handle,userOf,health,adminStore:createCloudAdminStore(admin),close(){for(const s of streams){clearInterval(s.timer);s.res.end();}streams.clear();}};
 }

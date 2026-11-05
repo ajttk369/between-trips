@@ -5,7 +5,7 @@ import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {once} from 'node:events';
 import assert from 'node:assert/strict';
-Object.assign(process.env,{STORAGE_BACKEND:'sqlite',GOOGLE_MAPS_API_KEY:'',GEOAPIFY_API_KEY:'',OPENAI_API_KEY:'',PUBLIC_URL:'',COOKIE_SECURE:'false'});delete process.env.VERCEL;
+Object.assign(process.env,{STORAGE_BACKEND:'sqlite',GOOGLE_MAPS_API_KEY:'',GEOAPIFY_API_KEY:'',OPENAI_API_KEY:'',PUBLIC_URL:'',COOKIE_SECURE:'false',ADMIN_USERNAME:'admin',ADMIN_PASSWORD:'qa-admin-pass'});delete process.env.VERCEL;
 const folder=path.resolve('test-output/responsive-qa');mkdirSync(folder,{recursive:true});
 const app=createApp({dataDir:path.join(folder,'data-'+Date.now())});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');const origin='http://127.0.0.1:'+app.server.address().port;
 const runId=Date.now();let browser,ws,serial=0;const pending=new Map(),errors=[];const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -74,5 +74,10 @@ try{
   await click(sourceButton);assert.equal(await evaluate(`document.querySelector('[name="amount"]').value`),'58000');assert.equal(await evaluate(`document.querySelector('[name="currency"]').value`),'KRW');
   await evaluate(`document.querySelector('[name="syncEstimate"]').checked=true;document.querySelector('#modal-form').requestSubmit();`);await wait(`!document.querySelector('#modal').open`);
   linked=(await api('/trips/'+trip.id)).value;assert.equal(linked.itinerary[0].cost,58000);assert.equal(linked.itinerary[0].currency,'KRW');assert.equal(linked.expenses.length,count);await fits('linked estimate mobile');await screenshot('linked-expense-mobile');
+  await command('Page.navigate',{url:origin+'/admin.html'});await wait(`!!document.querySelector('#admin-login')`);await fits('admin login');
+  await evaluate(`document.querySelector('#admin-login [name="username"]').value='admin';document.querySelector('#admin-login [name="password"]').value='qa-admin-pass';document.querySelector('#admin-login').requestSubmit();`);await wait(`document.querySelectorAll('.user-card').length===2`);
+  for(const width of [320,375,768,1440]){await viewport(width);await fits('admin '+width);await click('[data-edit="'+account.value.user.id+'"]');await fits('admin editor '+width);assert.equal(await evaluate(`document.querySelector('#user-password').value`),'');await click('[data-close]');}
+  await viewport(375);await click('[data-edit="'+account.value.user.id+'"]');await evaluate(`document.querySelector('#user-name').value='관리자가 수정한 이름';document.querySelector('#user-email').value='updated-layout@example.test';document.querySelector('#user-form').requestSubmit();`);await wait(`!document.querySelector('#user-editor').open`);await wait(`document.querySelector('#user-list').innerText.includes('updated-layout@example.test')`);await screenshot('admin-mobile');
+  await click('#logout');await wait(`!!document.querySelector('#admin-login')`);assert.equal(await evaluate(`document.querySelectorAll('.user-card').length`),0);
   assert.deepEqual(errors,[]);console.log('PASS: responsive layouts, task checks, settlement exclusion, compact cards, during-trip screen, linked actual editing and optional estimate synchronization.');
 }finally{try{if(ws?.readyState===1)await command('Browser.close');}catch{}ws?.close();browser?.kill();await app.close();}
