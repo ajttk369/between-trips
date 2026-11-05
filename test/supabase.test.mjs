@@ -91,3 +91,38 @@ test('클라우드와 로컬이 동일한 입력 검증·비용 보존 로직을
   assert.equal(doc.itinerary.length,1);
   assert.throws(()=>applyMutation(doc,{action:'upsert',collection:'places',value:{name:'센소지'}},user),e=>e.status===409);
 });
+
+test('로그인 후 여행 목록을 JSONB로 조회하고 다른 사람의 비공개 여행은 제외',async t=>{
+  const db=new PGlite();t.after(()=>db.close());
+  await db.exec('create table travel_workspaces(id uuid primary key, owner uuid, document jsonb, members jsonb, version integer default 1, updated timestamptz default now());');
+  const actor={id:randomUUID(),email:'traveler@example.test',user_metadata:{name:'여행자'}},other=randomUUID();
+  const ownId=randomUUID(),foreignId=randomUUID();
+  await db.query('insert into travel_workspaces(id,owner,document,members) values ($1,$2,$3,$4),($5,$6,$7,$8)',[
+    ownId,actor.id,{name:'내 여행'},[{id:actor.id,name:'여행자',role:'owner'}],
+    foreignId,other,{name:'다른 사람의 비공개 여행'},[{id:other,name:'다른 사람',role:'owner'}]
+  ]);
+  const token=`${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.signature`;
+  let actualFilter;
+  const fakeFetch=async(input)=>{
+    const url=new URL(String(input));
+    if(url.pathname==='/auth/v1/user')return send(actor);
+    assert.equal(url.pathname,'/rest/v1/travel_workspaces');
+    if(url.searchParams.get('limit')==='0')return send([]);
+    actualFilter=url.searchParams.get('members');
+    let filter;
+    try { filter=JSON.parse(actualFilter.slice(3)); }
+    catch { return send({code:'22P02',message:'invalid input syntax for type json'},400); }
+    const result=await db.query('select * from travel_workspaces where members @> $1::jsonb order by updated desc',[filter]);
+    return send(result.rows);
+  };
+  const api=createCloudApi({url:'https://test.supabase.co',key:'test-only-key',fetchImpl:fakeFetch,config:{},readBody:async()=>({})});
+  const req={method:'GET',headers:{cookie:`travel_sb_access=${token}`},socket:{remoteAddress:'127.0.0.1'}};
+  const res={writeHead(status){this.status=status;},end(body){this.data=JSON.parse(body);}};
+  await api.handle(req,res,new URL('https://travel.test/api/trips'));
+  assert.equal(res.status,200);
+  assert.deepEqual(JSON.parse(actualFilter.slice(3)),[{id:actor.id}]);
+  assert.deepEqual(res.data.map(x=>x.id),[ownId]);
+  await db.query('delete from travel_workspaces where id=$1',[ownId]);
+  await api.handle(req,res,new URL('https://travel.test/api/trips'));
+  assert.deepEqual(res.data,[],'내 여행이 없으면 빈 목록을 반환한다');
+});

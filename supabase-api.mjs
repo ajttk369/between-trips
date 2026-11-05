@@ -132,7 +132,7 @@ export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL,
     }
     if(parts[0]!=='trips')fail(404,'없는 기능입니다.');
     if(parts.length===1) {
-      if(method==='GET') { const {data,error}=await admin.from('travel_workspaces').select('*').contains('members',[{id:user.id}]).order('updated',{ascending:false});if(error)cloudError(error);return json(data.map(format)); }
+      if(method==='GET') { const {data,error}=await admin.from('travel_workspaces').select('*').contains('members',JSON.stringify([{id:user.id}])).order('updated',{ascending:false});if(error)cloudError(error);return json(data.map(format)); }
       if(method==='POST') { const body=await readBody(req),doc=createDocument(body,user);return json(await command('create',user,{p_trip:randomUUID(),p_document:doc}),201); }
       fail(405,'허용되지 않은 요청입니다.');
     }
