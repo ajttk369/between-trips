@@ -27,10 +27,12 @@ export function cleanItem(kind, input, doc, actor, old) {
   const item = { id: old?.id || uid(), createdBy: old?.createdBy || actor, createdAt: old?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   if (kind === 'places' || kind === 'stays') {
     Object.assign(item, { name: required(input.name, '장소 이름'), address: text(input.address, 1000), category: kind === 'stays' ? '숙소' : (categories.includes(input.category) ? input.category : '관광'), link: link(input.link), photo: link(input.photo), note: text(input.note), cost: number(input.cost), currency: currency(input.currency), source: text(input.source, 300) || '직접 등록', costKnown: input.costKnown!==undefined?Boolean(input.costKnown):(old?.costKnown??true), hoursVerified: old?.hoursVerified??false });
+    const googlePlaceId=text(input.googlePlaceId,255);if(googlePlaceId&&!/^[A-Za-z0-9_-]+$/.test(googlePlaceId))fail(400,'Google 장소 식별자를 확인해주세요.');item.googlePlaceId=googlePlaceId;
     const hasLat = input.lat !== '' && input.lat != null, hasLng = input.lng !== '' && input.lng != null;
     if (hasLat !== hasLng) fail(400, '위도와 경도를 함께 입력해주세요.');
     item.lat = hasLat ? number(input.lat, -90, 90) : null;
     item.lng = hasLng ? number(input.lng, -180, 180) : null;
+    if(googlePlaceId){item.lat=null;item.lng=null;}
     if (kind === 'places') { item.likes = old?.likes || []; item.comments = old?.comments || []; }
     else {
       Object.assign(item, { checkIn: date(input.checkIn, '체크인 날짜'), checkOut: date(input.checkOut, '체크아웃 날짜'), checkInTime: time(input.checkInTime), checkOutTime: time(input.checkOutTime), bookingNumber: text(input.bookingNumber, 200), status: ['후보', '예약 완료', '취소'].includes(input.status) ? input.status : '후보', paid: Boolean(input.paid), payer: text(input.payer, 100) || actor, share: number(input.share ?? 50, 0, 100) });
@@ -66,7 +68,7 @@ export function applyMutation(doc, body, user) {
         if (doc[kind].length >= 1000 && !old) fail(400, '항목은 최대 1,000개까지 저장할 수 있습니다.');
         const item = cleanItem(kind, body.value || {}, doc, user.id, old);
         activityName=item.name;
-        if (kind === 'places' && doc.places.some(x => x.id !== item.id && x.name.toLowerCase() === item.name.toLowerCase() && x.address === item.address)) fail(409, '이미 저장한 장소입니다. 기존 장소를 확인해주세요.');
+        if (kind === 'places' && doc.places.some(x => x.id !== item.id && (item.googlePlaceId&&x.googlePlaceId===item.googlePlaceId||x.name.toLowerCase() === item.name.toLowerCase() && x.address === item.address))) fail(409, '이미 저장한 장소입니다. 기존 장소를 확인해주세요.');
         if (old) doc[kind][doc[kind].indexOf(old)] = item;
         else if (kind === 'itinerary') {
           const before = doc.itinerary.findIndex(x => x.date === item.date && ((item.startTime && x.startTime && item.startTime < x.startTime) || x.note === '숙소 도착'));

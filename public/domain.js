@@ -5,6 +5,13 @@ export function daysBetween(start, end) {
   return result;
 }
 export const hasCoords = p => p && p.lat != null && p.lng != null && p.lat !== '' && p.lng !== '' && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
+export function mergeLocationCandidate(input,candidate){
+  if(!candidate||candidate.precision==='area')throw Error('지역·도로 중심은 숙소의 정확한 위치가 아니에요. 건물 후보를 찾거나 지도를 눌러 위치를 선택해주세요.');
+  if(!hasCoords(candidate)||Math.abs(Number(candidate.lat))>90||Math.abs(Number(candidate.lng))>180)throw Error('이 후보의 지도 위치를 확인할 수 없어요.');
+  const result={...input,lat:candidate.lat,lng:candidate.lng,googlePlaceId:candidate.googlePlaceId||'',source:candidate.source||input.source};
+  if(!candidate.googlePlaceId)for(const key of ['name','address','link'])if(!String(input[key]||'').trim())result[key]=candidate[key]||'';
+  return result;
+}
 export function travelClock(trip, instant = new Date()) {
   const timeZone=trip.timeZone||(['일본','Japan','JP'].includes(trip.country)?'Asia/Tokyo':trip.type==='domestic'||['한국','대한민국','KR'].includes(trip.country)?'Asia/Seoul':'UTC');
   const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(instant).map(p=>[p.type,p.value]));

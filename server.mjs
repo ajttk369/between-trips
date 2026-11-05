@@ -76,7 +76,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400000);
     res.setHeader('Set-Cookie', `travel_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookies() ? '; Secure' : ''}`);
   };
-  const cloud=process.env.STORAGE_BACKEND==='supabase'?createCloudApi({readBody,fetchImpl:cloudFetch,planGenerator,config:{search:Boolean(process.env.GEOAPIFY_API_KEY),routing:Boolean(process.env.GEOAPIFY_API_KEY),publicUrl:publicUrl(),liveMode:process.env.VERCEL?'poll':'sse',currencies}}):null;
+  const cloud=process.env.STORAGE_BACKEND==='supabase'?createCloudApi({readBody,fetchImpl:cloudFetch,planGenerator,config:{search:Boolean(process.env.GEOAPIFY_API_KEY||process.env.GOOGLE_MAPS_API_KEY),googleMapsBrowserKey:process.env.GOOGLE_MAPS_API_KEY||'',routing:Boolean(process.env.GEOAPIFY_API_KEY),publicUrl:publicUrl(),liveMode:process.env.VERCEL?'poll':'sse',currencies}}):null;
   async function api(req, res, url) {
     const method = req.method, parts = url.pathname.split('/').filter(Boolean).slice(1);
     const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
@@ -87,7 +87,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     }
     if(cloud && !['search','route'].includes(parts[0]))return cloud.handle(req,res,url);
     let user = cloud?await cloud.userOf(req,res):userOf(req);
-    if (parts[0] === 'config') return json({ storage:'sqlite', search: Boolean(process.env.GEOAPIFY_API_KEY), routing: Boolean(process.env.GEOAPIFY_API_KEY), publicUrl: process.env.PUBLIC_URL || '', currencies });
+    if (parts[0] === 'config') return json({ storage:'sqlite', search: Boolean(process.env.GEOAPIFY_API_KEY||process.env.GOOGLE_MAPS_API_KEY), googleMapsBrowserKey:process.env.GOOGLE_MAPS_API_KEY||'', routing: Boolean(process.env.GEOAPIFY_API_KEY), publicUrl: process.env.PUBLIC_URL || '', currencies });
     if (parts[0] === 'auth') {
       if (method === 'GET') return json({ user: user || null });
       const body = await readBody(req);
@@ -132,7 +132,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       const response = await serviceFetch(target, { signal: AbortSignal.timeout(12000) });
       if (!response.ok) fail(502, '장소 검색 서비스에 연결하지 못했습니다. 직접 등록을 이용해주세요.');
       const data = await response.json();
-      const value = { configured: true, results: (data.results || []).map(p => ({ name: p.name || p.address_line1, address: p.formatted, lat: p.lat, lng: p.lon, source: 'Geoapify · OpenStreetMap', link: `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=17/${p.lat}/${p.lon}` })) };
+      const value = { configured: true, results: (data.results || []).map(p => ({ name: p.name || p.address_line1, address: p.formatted, lat: p.lat, lng: p.lon, precision:['building','amenity'].includes(p.result_type)?'place':['street','suburb','district','city','county','postcode','state','country'].includes(p.result_type)?'area':'address', source: 'Geoapify · OpenStreetMap', link: `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=17/${p.lat}/${p.lon}` })) };
       if (cache.size > 2000) cache.clear(); cache.set(key, { value, until: Date.now() + 3600000 }); return json(value);
     }
     if (parts[0] === 'route' && method === 'POST') {
