@@ -33,6 +33,15 @@ export function overviewForDay(trip,date,instant=new Date()){
   const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
   return {...clock,date,during:false,items,next:timed[0]||items[0],stay};
 }
+export function journeyOverview(trip,instant=new Date()){
+  const overview=nextTravelStop(trip,instant),minutes=time=>Number(time.slice(0,2))*60+Number(time.slice(3,5)),now=minutes(overview.time);
+  const timed=overview.items.filter(item=>item.startTime).slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const untimed=overview.items.filter(item=>!item.startTime);
+  const active=overview.during?timed.filter(item=>minutes(item.startTime)<=now&&(item.endTime?minutes(item.endTime):minutes(item.startTime)+Number(item.duration||0))>now).at(-1)||null:null;
+  const future=overview.during?timed.filter(item=>item.id!==active?.id&&minutes(item.startTime)>=now):timed;
+  const next=future[0]||untimed[0]||null,following=future.length>1?future[1]:next&&untimed.find(item=>item.id!==next.id)||null;
+  return {...overview,active,next,following,untimed,preview:!overview.during,finished:overview.during&&!active&&!next&&overview.items.length>0};
+}
 export function distance(a, b) {
   if (!hasCoords(a) || !hasCoords(b)) return null;
   const rad = x => x * Math.PI / 180, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);

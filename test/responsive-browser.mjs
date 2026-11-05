@@ -55,5 +55,15 @@ try{
   assert.ok(await evaluate(`document.querySelector('[name="includeSettlement"]').checked`));
   await evaluate(`document.querySelector('[name="name"]').value='샘플 · 내가 내는 선물';document.querySelector('[name="amount"]').value='1000';document.querySelector('[name="includeSettlement"]').checked=false;document.querySelector('#modal-form').requestSubmit();`);
   await wait(`!document.querySelector('#modal').open`);const saved=(await api('/trips/'+trip.id)).value;assert.equal(saved.expenses.at(-1).excludeFromSettlement,true);assert.equal(saved.tasks[0].done,true);await fits('expense mobile');
-  assert.deepEqual(errors,[]);console.log('PASS: real Edge layout checks at 320/375/760/768/1000/1024/1440px, six tabs, tablet map switch, dialogs, mobile menu and gallery controls.');
+  await click('.mobile-trip-nav [data-view="list"]');assert.equal(await evaluate(`document.querySelectorAll('.event-details[open]').length`),0);
+  await click('[data-event-details] summary');await wait(`document.querySelector('[data-event-details]').open`);
+  await click('[data-action="select-item"]');assert.ok(await evaluate(`document.querySelector('[data-event-details]').open`));await screenshot('expanded-event-mobile');
+  await click('[data-event-details] summary');await wait(`!document.querySelector('[data-event-details]').open`);await screenshot('compact-event-mobile');
+  await click('[data-mode="journey"]');await wait(`!!document.querySelector('.journey-view')`);assert.ok(await evaluate(`document.querySelector('.journey-view').innerText.includes('미리보기')`));await fits('journey preview mobile');
+  await command('Page.addScriptToEvaluateOnNewDocument',{source:`{const RealDate=Date;const instant='2027-01-01T01:30:00Z';globalThis.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[instant]));}static now(){return new RealDate(instant).getTime();}};}`});
+  await command('Page.reload',{ignoreCache:true});await wait(`!!document.querySelector('.journey-view')`);
+  assert.equal(await evaluate(`document.querySelector('.journey-next h3').textContent`),trip.places[1].name);
+  for(const width of [320,375,768,1440]){await viewport(width);await fits('during-trip '+width);if(width===375)await screenshot('journey-mobile');if(width===1440)await screenshot('journey-desktop');}
+  await click('.journey-next [data-action="journey-event"]');await wait(`!document.querySelector('.journey-view')`);assert.ok(await evaluate(`!!document.querySelector('.event-details[open]')`));
+  assert.deepEqual(errors,[]);console.log('PASS: layouts at 320–1440px, six tabs, task checks, settlement exclusion, collapsed cards, retained expansion and automatic during-trip screen.');
 }finally{try{if(ws?.readyState===1)await command('Browser.close');}catch{}ws?.close();browser?.kill();await app.close();}
