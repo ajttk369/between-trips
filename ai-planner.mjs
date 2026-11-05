@@ -76,10 +76,11 @@ export function selectPlannerChanges(proposal,body){
   if(!Array.isArray(locations)||locations.length>20||locations.some(x=>!x||typeof x!=='object')||new Set(locations.map(x=>x.changeId)).size!==locations.length)fail(400,'확인한 위치를 다시 선택해주세요.');
   for(const location of locations){
     const c=proposal.changes.find(c=>c.changeId===location.changeId);
-    if(!ids.includes(location.changeId)||!c||c.operation==='remove'||c.placeId||c.target==='itinerary'&&!c.sourceUrls?.length||typeof location.lat!=='number'||!Number.isFinite(location.lat)||Math.abs(location.lat)>90||typeof location.lng!=='number'||!Number.isFinite(location.lng)||Math.abs(location.lng)>180)fail(400,'확인한 지도 위치가 올바르지 않아요.');
+    const googleId=typeof location.googlePlaceId==='string'&&/^[A-Za-z0-9_-]{1,255}$/.test(location.googlePlaceId);
+    const point=typeof location.lat==='number'&&Number.isFinite(location.lat)&&Math.abs(location.lat)<=90&&typeof location.lng==='number'&&Number.isFinite(location.lng)&&Math.abs(location.lng)<=180;
+    if(!ids.includes(location.changeId)||!c||c.operation==='remove'||c.placeId||c.target==='itinerary'&&!c.sourceUrls?.length||!point&&!googleId||location.googlePlaceId&&!googleId)fail(400,'확인한 지도 위치가 올바르지 않아요.');
   }
-  for(const location of locations)if(location.googlePlaceId&&!/^[A-Za-z0-9_-]{1,255}$/.test(location.googlePlaceId))fail(400,'Google 장소 식별자를 확인해주세요.');
-  return proposal.changes.filter(c=>ids.includes(c.changeId)).map(original=>{const c=structuredClone(original),location=locations.find(x=>x.changeId===c.changeId);if(location){c.confirmedLocation={lat:location.lat,lng:location.lng,...(location.googlePlaceId?{googlePlaceId:location.googlePlaceId}:{})};if(location.address)c.address=String(location.address).trim().slice(0,1000);}return c;});
+  return proposal.changes.filter(c=>ids.includes(c.changeId)).map(original=>{const c=structuredClone(original),location=locations.find(x=>x.changeId===c.changeId);if(location){c.confirmedLocation=location.googlePlaceId?{googlePlaceId:location.googlePlaceId,lat:null,lng:null}:{lat:location.lat,lng:location.lng};if(location.address)c.address=String(location.address).trim().slice(0,1000);}return c;});
 }
 export function applyPlannerChanges(doc,changes,user){
   for(const c of changes){

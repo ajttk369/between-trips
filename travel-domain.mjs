@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 const uid = () => randomUUID();
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const text = (value, max = 3000) => String(value ?? '').trim().slice(0, max);
@@ -57,10 +57,44 @@ export function cleanItem(kind, input, doc, actor, old) {
 }
 
 
+const eventSignature=event=>{const{placeId,...data}=event;return createHash('sha256').update(JSON.stringify(data)).digest('hex');};
+function rememberDeletion(doc,body,user,before){
+  const removed=[],seen=new Set(),placeIds=new Set();
+  const add=(collection,value)=>{const key=collection+':'+value.id;if(seen.has(key))return;seen.add(key);removed.push({collection,value:structuredClone(value),index:doc[collection].findIndex(x=>x.id===value.id)});};
+  add(body.collection,before);
+  if(body.collection==='places')placeIds.add(before.id);
+  if(body.collection==='stays')placeIds.add(before.id);
+  if(body.collection==='itinerary'&&body.deletePlace){const place=doc.places.find(p=>p.id===before.placeId);if(place){add('places',place);placeIds.add(place.id);}}
+  if(body.collection==='places'&&body.deleteLinked)for(const item of doc.itinerary.filter(x=>x.placeId===before.id))add('itinerary',item);
+  const detached=doc.itinerary.filter(i=>placeIds.has(i.placeId)&&!seen.has('itinerary:'+i.id)).map(i=>({id:i.id,placeId:i.placeId,updatedAt:i.updatedAt,signature:eventSignature(i)}));
+  const now=Date.now(),entry={id:uid(),actor:user.id,title:before.name,at:new Date(now).toISOString(),expires:now+30*60000,removed,detached};
+  doc.deleted=[...(doc.deleted||[]).filter(x=>x.expires>now).slice(-4),entry];
+  while(doc.deleted.length&&Buffer.byteLength(JSON.stringify(doc.deleted))>300000)doc.deleted.shift();
+}
+function restoreDeletion(doc,id,user){
+  const entry=doc.deleted?.find(x=>x.id===id);
+  if(!entry||entry.expires<=Date.now())fail(410,'삭제 취소 가능한 시간이 지났어요.');
+  if(entry.actor!==user.id)fail(403,'본인이 삭제한 항목만 취소할 수 있어요.');
+  for(const kind of collections){
+    const records=entry.removed.filter(x=>x.collection===kind);
+    if(doc[kind].length+records.length>1000)fail(400,'항목 수가 많아 복구할 수 없어요.');
+    for(const {value}of records){
+      if(doc[kind].some(x=>x.id===value.id))fail(409,'같은 항목이 이미 있어 복구할 수 없어요.');
+      if(kind==='places'&&doc.places.some(p=>value.googlePlaceId&&p.googlePlaceId===value.googlePlaceId||p.name.toLowerCase()===value.name.toLowerCase()&&p.address===value.address))fail(409,'같은 장소가 이미 저장돼 있어요. 기존 장소를 확인해주세요.');
+    }
+  }
+  for(const {collection,value,index}of entry.removed){const item=structuredClone(value);doc[collection].splice(Math.min(index,doc[collection].length),0,item);}
+  const places=[...doc.places,...doc.stays];
+  for(const {id,placeId,updatedAt,signature}of entry.detached){const event=doc.itinerary.find(x=>x.id===id);if(event&&!event.placeId&&event.updatedAt===updatedAt&&eventSignature(event)===signature&&places.some(p=>p.id===placeId))event.placeId=placeId;}
+  for(const {collection,value}of entry.removed)if(collection==='itinerary'){const item=doc.itinerary.find(x=>x.id===value.id);if(item.placeId&&!places.some(p=>p.id===item.placeId))item.placeId='';}
+  doc.deleted=doc.deleted.filter(x=>x.id!==entry.id&&x.expires>Date.now());return entry.title;
+}
 export function applyMutation(doc, body, user) {
+      if(Array.isArray(doc.deleted))doc.deleted=doc.deleted.filter(x=>x.expires>Date.now());
       const before=body.collection?doc[body.collection]?.find(x=>x.id===(body.itemId||body.value?.id)):null;
       let activityName=before?.name||body.value?.name||'';
-      if (body.action === 'meta') Object.assign(doc, validateMeta(body.value));
+      if (body.action === 'restore') activityName=restoreDeletion(doc,body.deletionId,user);
+      else if (body.action === 'meta') Object.assign(doc, validateMeta(body.value));
       else if (body.action === 'upsert') {
         const kind = body.collection; if (!collections.includes(kind)) fail(400, '잘못된 항목입니다.');
         const old = doc[kind].find(x => x.id === body.value?.id);
@@ -78,6 +112,7 @@ export function applyMutation(doc, body, user) {
       } else if (body.action === 'delete') {
         if (!collections.includes(body.collection)) fail(400, '잘못된 항목입니다.');
         if (!before) fail(404,'이미 삭제된 항목입니다.');
+        rememberDeletion(doc,body,user,before);
         const removePlaces=new Set();
         if (body.collection==='itinerary'&&body.deletePlace&&before.placeId&&doc.places.some(x=>x.id===before.placeId))removePlaces.add(before.placeId);
         if (body.collection==='places')removePlaces.add(before.id);
@@ -105,7 +140,7 @@ export function applyMutation(doc, body, user) {
         const same = doc.itinerary.filter(x => x.date === day); doc.itinerary = [...doc.itinerary.filter(x => x.date !== day), first, ...same, last];
       } else fail(400, '지원하지 않는 변경입니다.');
   const labels={places:'장소',itinerary:'일정',stays:'숙소',reservations:'예약',tasks:'할 일',expenses:'지출'};
-  const action=body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
+  const action=body.action==='restore'?'삭제 취소':body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
   if(!activityName)activityName=body.action==='meta'?doc.name:body.itemId?doc.places.find(x=>x.id===body.itemId)?.name||'':'';
   doc.activity=[...(Array.isArray(doc.activity)?doc.activity:[]).slice(-29),{id:uid(),actor:user.id,name:text(user.name,40)||'동행',action,collection:body.collection||'',title:text(activityName,200)||labels[body.collection]||'여행',at:new Date().toISOString()}];
   return doc;

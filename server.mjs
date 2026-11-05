@@ -206,7 +206,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       transaction(() => { db.prepare('DELETE FROM members WHERE trip_id=? AND user_id=?').run(id, other || ''); db.prepare('DELETE FROM invites WHERE trip_id=?').run(id); db.prepare('UPDATE trips SET version=version+1 WHERE id=?').run(id); });
       broadcast(id); return json(snapshot(id));
     }
-    if (parts[2] === 'export' && method === 'GET') return json({ ...snapshot(id), schemaVersion: 1 });
+    if (parts[2] === 'export' && method === 'GET') {const{deleted,...exported}=snapshot(id);return json({...exported,schemaVersion:1});}
     if (method === 'GET') return json(snapshot(id));
     if (method === 'DELETE') {
       permission(id, user, true); await readBody(req);

@@ -26,6 +26,13 @@ export function nextTravelStop(trip, instant = new Date()) {
   const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
   return {...clock,date,during,items,next,stay};
 }
+export function overviewForDay(trip,date,instant=new Date()){
+  const today=nextTravelStop(trip,instant),clock=travelClock(trip,instant);
+  if(date===clock.date&&today.during)return today;
+  const items=trip.itinerary.filter(i=>i.date===date),timed=items.filter(i=>i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
+  return {...clock,date,during:false,items,next:timed[0]||items[0],stay};
+}
 export function distance(a, b) {
   if (!hasCoords(a) || !hasCoords(b)) return null;
   const rad = x => x * Math.PI / 180, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);

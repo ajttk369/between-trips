@@ -168,7 +168,7 @@ export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL,
       fail(405,'허용되지 않은 요청입니다.');
     }
     if(parts[2]==='members'&&method==='DELETE')return json(await command('remove',user,{p_trip:id,p_member:uuid(parts[3])}));
-    if(parts[2]==='export'&&method==='GET')return json({...trip,schemaVersion:1});
+    if(parts[2]==='export'&&method==='GET'){const{deleted,...exported}=trip;return json({...exported,schemaVersion:1});}
     if(method==='GET')return json(trip);
     if(method==='DELETE'){await readBody(req);return json(await command('delete',user,{p_trip:id}));}
     if(method!=='PATCH')fail(405,'허용되지 않은 요청입니다.');

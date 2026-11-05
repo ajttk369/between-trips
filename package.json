@@ -10,7 +10,7 @@
     "start": "node --use-system-ca --env-file-if-exists=.env server.mjs",
     "dev": "node --use-system-ca --env-file-if-exists=.env --watch server.mjs",
     "test": "node scripts/build-vercel.mjs && node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check supabase-api.mjs && node --check travel-domain.mjs && node --check public/app.js && node --check public/setup.js && node --check api/handler.js && node --check runtime.mjs && node --check assistant-api.mjs && node --check ai-planner.mjs && node --check public/google-maps.js",
+    "check": "node --check server.mjs && node --check supabase-api.mjs && node --check travel-domain.mjs && node --check public/app.js && node --check public/setup.js && node --check api/handler.js && node --check runtime.mjs && node --check assistant-api.mjs && node --check ai-planner.mjs && node --check public/google-maps.js && node --check public/review-state.js",
     "supabase:check": "node --use-system-ca --env-file-if-exists=.env scripts/check-supabase.mjs",
     "build:vercel": "node scripts/build-vercel.mjs"
   },
