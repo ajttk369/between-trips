@@ -1,0 +1,12 @@
+import { cpSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const dist = path.join(root,'dist');
+if (!existsSync(path.join(root,'node_modules','leaflet','dist','leaflet.js'))) throw new Error('먼저 npm ci로 의존성을 설치해주세요.');
+mkdirSync(dist,{recursive:true});
+cpSync(path.join(root,'public'),dist,{recursive:true});
+cpSync(path.join(root,'node_modules','leaflet','dist'),path.join(dist,'vendor'),{recursive:true});
+copyFileSync(path.join(root,'supabase','schema.sql'),path.join(dist,'setup.sql'));
+copyFileSync(path.join(root,'node_modules','leaflet','LICENSE'),path.join(dist,'vendor','LICENSE'));
+console.log('Vercel 정적 화면 준비 완료 · dist (비밀 키와 로컬 데이터 제외)');

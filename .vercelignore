@@ -1,0 +1,13 @@
+.env
+.env.*
+data/
+test-output/
+.npm-cache/
+node_modules/
+.git/
+.vercel/
+dist/
+preview-*.png
+test/
+*.md
+*.cmd
