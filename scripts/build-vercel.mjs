@@ -8,5 +8,6 @@ mkdirSync(dist,{recursive:true});
 cpSync(path.join(root,'public'),dist,{recursive:true});
 cpSync(path.join(root,'node_modules','leaflet','dist'),path.join(dist,'vendor'),{recursive:true});
 copyFileSync(path.join(root,'supabase','schema.sql'),path.join(dist,'setup.sql'));
+copyFileSync(path.join(root,'supabase','ai.sql'),path.join(dist,'setup-ai.sql'));
 copyFileSync(path.join(root,'node_modules','leaflet','LICENSE'),path.join(dist,'vendor','LICENSE'));
 console.log('Vercel 정적 화면 준비 완료 · dist (비밀 키와 로컬 데이터 제외)');

@@ -27,7 +27,7 @@ const number = (v, min = 0, max = 1e12) => { const n = Number(v || 0); if (!Numb
 const link = v => { if (!v) return ''; try { const u = new URL(v); if (['https:', 'http:'].includes(u.protocol)) return u.href.slice(0, 3000); } catch {} fail(400, 'http 또는 https 링크를 입력해주세요.'); };
 const currency = v => currencies.includes(v) ? v : 'KRW';
 
-export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'data') } = {}) {
+export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'data'), cloudFetch, planGenerator } = {}) {
   if(process.env.STORAGE_BACKEND&&!['sqlite','supabase'].includes(process.env.STORAGE_BACKEND))throw new Error('STORAGE_BACKEND는 sqlite 또는 supabase여야 합니다.');
   const cloudMode=process.env.STORAGE_BACKEND==='supabase';
   const db=cloudMode?null:(()=>{
@@ -76,7 +76,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400000);
     res.setHeader('Set-Cookie', `travel_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookies() ? '; Secure' : ''}`);
   };
-  const cloud=process.env.STORAGE_BACKEND==='supabase'?createCloudApi({readBody,config:{search:Boolean(process.env.GEOAPIFY_API_KEY),routing:Boolean(process.env.GEOAPIFY_API_KEY),publicUrl:publicUrl(),liveMode:process.env.VERCEL?'poll':'sse',currencies}}):null;
+  const cloud=process.env.STORAGE_BACKEND==='supabase'?createCloudApi({readBody,fetchImpl:cloudFetch,planGenerator,config:{search:Boolean(process.env.GEOAPIFY_API_KEY),routing:Boolean(process.env.GEOAPIFY_API_KEY),publicUrl:publicUrl(),liveMode:process.env.VERCEL?'poll':'sse',currencies}}):null;
   async function api(req, res, url) {
     const method = req.method, parts = url.pathname.split('/').filter(Boolean).slice(1);
     const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
@@ -228,6 +228,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (url.pathname.startsWith('/api/')) return await api(req, res, url);
       if (!['GET', 'HEAD'].includes(req.method)) fail(405, '허용되지 않은 요청입니다.');
+      if(url.pathname==='/setup-ai.sql'){res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});return res.end(readFileSync(path.join(root,'supabase','ai.sql')));}
       if(url.pathname==='/setup.sql'){res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});return res.end(readFileSync(path.join(root,'supabase','schema.sql')));}
       let file;
       if (url.pathname.startsWith('/vendor/')) file = path.join(root, 'node_modules', 'leaflet', 'dist', decodeURIComponent(url.pathname.slice(8)));

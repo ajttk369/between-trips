@@ -1,3 +1,4 @@
+import { createAssistantApi } from './assistant-api.mjs';
 import { publicUrl, requestOrigin, secureCookies } from './runtime.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
@@ -34,11 +35,12 @@ export function cloudError(error) {
   fail(503,'Supabase에 연결하지 못했습니다. 프로젝트 상태와 서버 연결 설정을 확인해주세요.');
 }
 
-export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL, key=process.env.SUPABASE_SERVICE_ROLE_KEY, fetchImpl=globalThis.fetch }={}) {
+export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL, key=process.env.SUPABASE_SERVICE_ROLE_KEY, fetchImpl=globalThis.fetch, planGenerator }={}) {
   if(!url || !key) throw new Error('Supabase 모드에는 SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY가 필요합니다.');
   const transport=(input,init)=>fetchImpl(input,{...init,signal:AbortSignal.timeout(12000)});
   const options={auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:transport}};
   const admin=createClient(url,key,options),authClient=()=>createClient(url,key,options);
+  const assistant=createAssistantApi({admin,readBody,generate:planGenerator});
   const attempts=new Map(),refreshing=new Map(),streams=new Set();
   let healthCache=null;
   async function health(force=false) {
@@ -122,7 +124,7 @@ export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL,
   async function handle(req,res,urlObj) {
     const parts=urlObj.pathname.split('/').filter(Boolean).slice(1),method=req.method;
     const json=(data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
-    if(parts[0]==='config')return json({...config,storage:'supabase',storageStatus:await health(),setupUrl:'/setup.html',supabaseDashboardUrl:'https://supabase.com/dashboard/project/'+new URL(url).hostname.split('.')[0]});
+    if(parts[0]==='config')return json({...config,storage:'supabase',aiConfigured:Boolean(process.env.OPENAI_API_KEY),storageStatus:await health(),setupUrl:'/setup.html',supabaseDashboardUrl:'https://supabase.com/dashboard/project/'+new URL(url).hostname.split('.')[0]});
     if(parts[0]==='health')return json({storage:'supabase',...await health(true)});
     if(parts[0]==='auth')return auth(req,res,parts,json);
     await ready();const user=await userOf(req,res);if(!user)fail(401,'로그인이 필요합니다.');
@@ -137,6 +139,7 @@ export function createCloudApi({ readBody, config, url=process.env.SUPABASE_URL,
       fail(405,'허용되지 않은 요청입니다.');
     }
     const id=uuid(parts[1]),trip=await getTrip(id,user);
+    if(parts[2]==='assistant')return assistant(req,res,parts,json,trip,user);
     if(parts[2]==='events'&&method==='GET') {
       if(config.liveMode==='poll')return json({error:'이 배포에서는 여행 조회 API를 주기적으로 확인합니다.'},405);
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});

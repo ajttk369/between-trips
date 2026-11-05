@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 COPY server.mjs ./
-COPY travel-domain.mjs supabase-api.mjs runtime.mjs ./
+COPY travel-domain.mjs supabase-api.mjs runtime.mjs assistant-api.mjs ai-planner.mjs ./
 COPY supabase ./supabase
 COPY public ./public
 RUN mkdir -p /app/data && chown -R node:node /app

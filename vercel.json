@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/handler.js": {
-      "maxDuration": 30,
+      "maxDuration": 60,
       "excludeFiles": "{data/**,test/**,test-output/**,.env*,.npm-cache/**,preview-*.png}"
     }
   },

@@ -10,13 +10,14 @@
     "start": "node --use-system-ca --env-file-if-exists=.env server.mjs",
     "dev": "node --use-system-ca --env-file-if-exists=.env --watch server.mjs",
     "test": "node scripts/build-vercel.mjs && node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check supabase-api.mjs && node --check travel-domain.mjs && node --check public/app.js && node --check public/setup.js && node --check api/handler.js && node --check runtime.mjs",
+    "check": "node --check server.mjs && node --check supabase-api.mjs && node --check travel-domain.mjs && node --check public/app.js && node --check public/setup.js && node --check api/handler.js && node --check runtime.mjs && node --check assistant-api.mjs && node --check ai-planner.mjs",
     "supabase:check": "node --use-system-ca --env-file-if-exists=.env scripts/check-supabase.mjs",
     "build:vercel": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.108.2",
-    "leaflet": "1.9.4"
+    "leaflet": "1.9.4",
+    "openai": "6.42.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.15"
