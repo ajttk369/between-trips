@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { cleanAttachments } from './public/attachment-data.js';
 const uid = () => randomUUID();
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const text = (value, max = 3000) => String(value ?? '').trim().slice(0, max);
@@ -53,6 +54,10 @@ export function cleanItem(kind, input, doc, actor, old) {
     if (source && doc.expenses.some(x => x.sourceId === source && x.id !== old?.id)) fail(409, '이미 실제 지출이 연결되어 있습니다.');
     Object.assign(item, { name: required(input.name, '지출 이름'), date: date(input.date, '지출 날짜'), category: categories.includes(input.category) ? input.category : '기타', amount: number(input.amount), currency: currency(input.currency), payer: text(input.payer, 100) || actor, share: number(input.share ?? 50, 0, 100), note: text(input.note), sourceId: source });
   }
+  if (kind === 'stays' || kind === 'reservations') {
+    try { item.attachments = cleanAttachments(input.attachments ?? old?.attachments ?? []); }
+    catch (error) { fail(400,error.message); }
+  }
   return item;
 }
 
@@ -95,6 +100,33 @@ export function applyMutation(doc, body, user) {
       let activityName=before?.name||body.value?.name||'';
       if (body.action === 'restore') activityName=restoreDeletion(doc,body.deletionId,user);
       else if (body.action === 'meta') Object.assign(doc, validateMeta(body.value));
+      else if (body.action === 'scheduleMany') {
+        const day = date(body.date,'일정 날짜'), ids = body.placeIds;
+        if (day < doc.start || day > doc.end) fail(400,'여행 기간 안의 날짜를 선택해주세요.');
+        if (!Array.isArray(ids) || !ids.length || ids.length > 100 || new Set(ids).size !== ids.length) fail(400,'한 번에 1~100개 장소를 선택해주세요.');
+        const places = ids.map(id => doc.places.find(p=>p.id===id));
+        if (places.some(p=>!p)) fail(409,'선택한 장소가 변경됐어요. 목록을 다시 확인해주세요.');
+        if (places.some(p=>doc.itinerary.some(i=>i.date===day && i.placeId===p.id))) fail(409,'해당 날짜에 이미 들어간 장소가 있어요. 선택을 확인해주세요.');
+        if (doc.itinerary.length + places.length > 1000) fail(400,'일정은 최대 1,000개까지 저장할 수 있어요.');
+        const items=places.map(p=>cleanItem('itinerary',{placeId:p.id,date:day,cost:p.category==='숙소'?0:p.cost,currency:p.currency,mode:'walk'},doc,user.id));
+        const last=doc.itinerary.findIndex(i=>i.date===day&&i.note==='숙소 도착');
+        if(last<0)doc.itinerary.push(...items);else doc.itinerary.splice(last,0,...items);
+        activityName=places.length+'개 장소';
+      }
+      else if (body.action === 'transferItinerary') {
+        const original=doc.itinerary.find(i=>i.id===body.itemId), day=date(body.date,'일정 날짜');
+        if (!original) fail(404,'일정이 삭제됐어요.');
+        if (!['copy','move'].includes(body.mode)) fail(400,'복사 또는 이동을 선택해주세요.');
+        if (day < doc.start || day > doc.end) fail(400,'여행 기간 안의 날짜를 선택해주세요.');
+        if (body.mode==='move' && day===original.date) fail(400,'다른 날짜를 선택해주세요.');
+        if (body.mode==='copy' && doc.itinerary.length>=1000) fail(400,'일정은 최대 1,000개까지 저장할 수 있어요.');
+        const value={...original,date:day};if(body.clearTimes){value.startTime='';value.endTime='';}
+        const item=cleanItem('itinerary',value,doc,user.id,body.mode==='move'?original:undefined);
+        if (body.mode==='move')doc.itinerary=doc.itinerary.filter(i=>i.id!==original.id);
+        const last=doc.itinerary.findIndex(i=>i.date===day&&i.note==='숙소 도착');
+        if(last<0)doc.itinerary.push(item);else doc.itinerary.splice(last,0,item);
+        activityName=original.name;
+      }
       else if (body.action === 'upsert') {
         const kind = body.collection; if (!collections.includes(kind)) fail(400, '잘못된 항목입니다.');
         const old = doc[kind].find(x => x.id === body.value?.id);
@@ -140,10 +172,16 @@ export function applyMutation(doc, body, user) {
         const same = doc.itinerary.filter(x => x.date === day); doc.itinerary = [...doc.itinerary.filter(x => x.date !== day), first, ...same, last];
       } else fail(400, '지원하지 않는 변경입니다.');
   const labels={places:'장소',itinerary:'일정',stays:'숙소',reservations:'예약',tasks:'할 일',expenses:'지출'};
-  const action=body.action==='restore'?'삭제 취소':body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
+  const action=body.action==='scheduleMany'?'일정에 추가':body.action==='transferItinerary'?(body.mode==='copy'?'일정 복사':'날짜 이동'):body.action==='restore'?'삭제 취소':body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
   if(!activityName)activityName=body.action==='meta'?doc.name:body.itemId?doc.places.find(x=>x.id===body.itemId)?.name||'':'';
   doc.activity=[...(Array.isArray(doc.activity)?doc.activity:[]).slice(-29),{id:uid(),actor:user.id,name:text(user.name,40)||'동행',action,collection:body.collection||'',title:text(activityName,200)||labels[body.collection]||'여행',at:new Date().toISOString()}];
-  return doc;
+  validateDocumentCapacity(doc);return doc;
+}
+
+export function validateDocumentCapacity(doc){
+  const attachmentSize=[...doc.stays,...doc.reservations].reduce((n,item)=>n+(item.attachments||[]).reduce((s,f)=>s+f.size,0),0);
+  if(attachmentSize>1024*1024)fail(400,'여행의 첨부 파일 합계는 1MB까지예요. 사용하지 않는 파일을 지워주세요.');
+  if(Buffer.byteLength(JSON.stringify(doc))>1_800_000)fail(400,'여행 기록 용량이 가득 찼어요. 첨부 파일이나 불필요한 기록을 줄여주세요.');
 }
 
 export function createDocument(body, user) {
@@ -160,5 +198,5 @@ export function createDocument(body, user) {
           }
         }
       }
- return doc;
+ validateDocumentCapacity(doc);return doc;
 }

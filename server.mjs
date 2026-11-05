@@ -167,19 +167,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     if (parts.length === 1) {
       if (method === 'GET') return json(db.prepare('SELECT t.id FROM trips t JOIN members m ON m.trip_id=t.id WHERE m.user_id=? ORDER BY t.updated DESC').all(user.id).map(row => snapshot(row.id)));
       if (method !== 'POST') fail(405, '허용되지 않은 요청입니다.');
-      const body = await readBody(req), imported = body.import, input = imported || body;
-      const doc = { ...validateMeta(input), ...Object.fromEntries(collections.map(k => [k, []])) };
-      if (imported) {
-        if (imported.schemaVersion !== 1) fail(400, '지원하지 않는 여행 파일입니다.');
-        const ids = new Map();
-        for (const kind of collections) {
-          const list = imported[kind] || []; if (!Array.isArray(list) || list.length > 1000) fail(400, '가져올 항목 수가 너무 많거나 형식이 잘못되었습니다.');
-          for (const original of list) {
-            const item = cleanItem(kind, { ...original, placeId: ids.get(original.placeId) || '', sourceId: ids.get(original.sourceId) || '', payer: user.id, assignee: original.assignee ? user.id : '' }, doc, user.id);
-            ids.set(original.id, item.id); doc[kind].push(item);
-          }
-        }
-      }
+      const body = await readBody(req),doc=createDocument(body,user);
       const id = uid(); transaction(() => { db.prepare('INSERT INTO trips VALUES (?,?,?,?,?)').run(id, user.id, JSON.stringify(doc), 1, new Date().toISOString()); db.prepare('INSERT INTO members VALUES (?,?,?)').run(id, user.id, 'owner'); }); return json(snapshot(id), 201);
     }
     const id = parts[1]; permission(id, user);

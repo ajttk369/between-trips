@@ -54,10 +54,10 @@ export async function createGoogleMap(node,{center,zoom=14,onClick}){
     onRemove(){if(this.element){this.element.onclick=null;this.element.remove();}}
   }
   return {provider:'google',node,
-    update({center,zoom=14,pins=[],line=[]}){
+    update({center,zoom=14,pins=[],line=[],boundsPoints=line}){
       if(disposed)return;g.event.trigger(canvas,'resize');markers.forEach(m=>m.setMap(null));markers=pins.map(p=>new NumberPin(p.position,p.label,p.title,p.active,p.onClick));path?.setMap(null);
       path=line.length>1?new g.Polyline({map:canvas,path:line,strokeOpacity:0,icons:[{icon:{path:'M 0,-1 0,1',strokeOpacity:.8,strokeColor:'#527cbd',scale:3},offset:'0',repeat:'16px'}]}):null;
-      if(line.length>1){const bounds=new g.LatLngBounds();line.forEach(p=>bounds.extend(p));canvas.fitBounds(bounds,45);g.event.addListenerOnce(canvas,'idle',()=>{if(!disposed&&canvas.getZoom()>16)canvas.setZoom(16);});}
+      if(boundsPoints.length>1){const bounds=new g.LatLngBounds();boundsPoints.forEach(p=>bounds.extend(p));canvas.fitBounds(bounds,45);g.event.addListenerOnce(canvas,'idle',()=>{if(!disposed&&canvas.getZoom()>16)canvas.setZoom(16);});}
       else {canvas.setCenter(center);canvas.setZoom(zoom);}
     },
     setPoint(position){this.update({center:position,zoom:17,pins:[{position,label:'●',title:'확인한 위치'}]});},

@@ -213,3 +213,65 @@ body:has(dialog[open]) { overflow: hidden; }
   .map-panel #map { min-height: 350px; }
   .map-head { padding: 10px 13px; }
 }
+/* Comfortable reading sizes and controls, including narrow phone screens. */
+:root{font-size:15px}
+.small{font-size:13px}
+.btn,.nav-btn,.tab,.pill{font-size:14px}
+.field,.heading p,.section-hint,.panel-head p,.info-note,.warning,.details,.place-address,.place-note,.timeline-card p,.task-meta,.trip-card-content p,.trip-card-foot,.quick-compact-head p,.quick-summary,.quick-expanded p,.recent-changes summary,.auth-note,.auth-box>p{font-size:14px!important}
+.timeline-time{font-size:14px}.timeline-card h4{font-size:17px}
+.panel-head p,.heading p,.section-hint,.timeline-card p,.place-address,.quick-compact-head p,.quick-expanded p{color:var(--muted)}
+.trip-card-content .metric-line,.trip-card-foot>span,.summary-label,.place-foot>span{font-size:13px!important}
+.quick-summary .btn{font-size:13px;min-height:40px}
+.trip-meta{font-size:13px}.badge,.tag,.eyebrow{font-size:12px}
+.place-foot,.metric-line,.footer-note,.map-footer,.map-head span{font-size:12px}
+.day small{font-size:12px}.day strong{font-size:15px}
+.dashboard-list-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.dashboard-list-head .filter-row{margin:0}.dashboard-list-head .row{gap:8px}
+.trip-grid:empty{display:none}.heading{margin-bottom:28px}
+.trip-actions,.map-head,.map-head>.row,.timeline-controls{flex-wrap:wrap}
+.trip-actions{gap:8px}.timeline-controls .icon-btn{min-width:40px;min-height:40px}
+.map-head{gap:10px}.map-view-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
+.recent-changes{margin-top:24px;margin-bottom:0}.recent-changes summary{padding:12px 16px}
+.bulk-place-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.bulk-place-toolbar strong{margin-inline-start:auto;font-size:14px}
+.place-select{display:flex;align-items:center;gap:9px;padding:12px 16px;font-size:14px;background:var(--pale)}
+.place-select input,.form-checkbox input{width:18px;height:18px;accent-color:var(--blue);flex-shrink:0}
+.selection-preview{max-height:220px;overflow:auto;padding-left:24px}.selection-preview li{margin:8px 0}
+.form-checkbox{display:flex;align-items:center;gap:10px;padding-block:10px}
+.attachment-editor{border-top:1px solid var(--line);padding-top:20px;margin-top:20px;display:grid;gap:12px}
+.attachment-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.attachment-list .btn{white-space:normal;overflow-wrap:anywhere;max-width:100%;text-align:left}
+.attachment-draft{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-top:8px}
+.attachment-draft span{overflow-wrap:anywhere;min-width:0}.attachment-editor input{width:100%;min-width:0}
+.booking-preview{display:block;width:100%;max-height:65vh;object-fit:contain;margin-bottom:18px}
+.boot .brand-symbol{width:64px;height:64px}.boot p{font-size:15px}.boot{padding:24px;text-align:center}
+.boot-spinner{display:block;width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:boot-spin .9s linear infinite}
+.boot-recovery{display:grid;justify-items:center;gap:12px;max-width:400px}.boot-recovery p{color:var(--muted)}
+@keyframes boot-spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  .main{padding-top:22px}.btn,.icon-btn{min-height:44px}.icon-btn{min-width:44px}
+  .heading{gap:12px}.heading .btn{font-size:14px;padding:10px 12px}
+  .dashboard-list-head{align-items:flex-start;gap:12px}.dashboard-list-head>.row{width:100%}
+  .trip-actions .btn{font-size:13px}.trip-actions{justify-content:flex-start}
+  .tabs{gap:18px}.tab{font-size:14px;padding-block:14px;flex-shrink:0}
+  .panel-head{flex-wrap:wrap;gap:10px}.planner-grid>.panel>.row{flex-wrap:wrap;gap:10px}
+  .planner-grid>.panel>.row>.row{flex-wrap:wrap;gap:6px}.planner-grid>.panel>.row .btn{font-size:13px}
+  .quick-summary{grid-template-columns:1fr}.quick-summary>div{flex-wrap:wrap}.quick-summary strong{overflow-wrap:anywhere}
+  .map-head>.row{width:100%;justify-content:space-between;gap:8px}.map-view-actions .btn{font-size:13px}
+  .timeline-controls .icon-btn{min-width:44px;min-height:44px}.timeline-card{padding-bottom:14px}
+  .bulk-place-toolbar{gap:8px}.bulk-place-toolbar strong{margin-inline-start:0}.bulk-place-toolbar>.primary{width:100%}
+  .attachment-draft{align-items:flex-start}.recent-changes summary{flex-wrap:wrap;gap:8px}.recent-changes summary span{min-width:0;overflow-wrap:anywhere}
+  .field input,.field select,.field textarea{font-size:16px!important}
+}
+@media(prefers-reduced-motion:reduce){.boot-spinner{animation:none;border-right-color:var(--blue)}}
+
+/* The supplied Tokyo photo is shared by the introduction and sign-in screen. */
+.hero-art{background-image:url('/tokyo-evening.jpg?v=1');background-position:28% 50%}
+.auth-story>img{height:50%;object-position:28% 50%}
+@media(max-width:640px){
+  .hero-art{background-position:28% 50%;min-height:200px}
+  .auth-story{height:auto;min-height:0}
+  .auth-story-copy{margin-top:22px}
+  .auth-story-copy p{max-width:none}
+  .auth-story>img{position:relative;left:auto;right:auto;bottom:auto;width:calc(100% + 52px);height:180px;max-width:none;margin:22px -26px -26px;mask-image:none;object-position:28% 50%;flex-shrink:0}
+}
