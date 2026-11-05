@@ -4806,7 +4806,7 @@ dialog form {
 @media(max-width:760px){
  .has-trip .main{padding-top:16px}.has-trip .tabs{margin-top:12px}.has-trip .trip-mini-cover{display:none}
  .day-overview>summary{padding:10px 12px;gap:8px;flex-wrap:nowrap;font-size:12px}.day-overview>summary>strong{white-space:nowrap}.day-overview .overview-stay{display:none}.day-overview>summary>small{font-size:11px}
- .route-between{grid-template-columns:minmax(0,1fr) auto;margin-left:22px;gap:8px}.route-actions{grid-template-columns:92px 72px;gap:6px;width:auto}.route-actions select{font-size:16px;height:44px;min-height:44px;max-width:none;padding:5px 20px 5px 6px}.route-between .route-actions a,.route-between .route-actions button{height:44px;min-height:44px;font-size:13px;padding:5px 2px}
+ .route-between{grid-template-columns:minmax(0,1fr) auto;margin-left:22px;gap:8px}.route-actions{grid-template-columns:112px 64px;gap:6px;width:auto}.route-actions select{font-size:16px;height:44px;min-height:44px;max-width:none;padding:5px 20px 5px 6px}.route-between .route-actions a,.route-between .route-actions button{height:44px;min-height:44px;font-size:13px;padding:5px 2px}
  .day-progress{font-size:12px}.itinerary-view-switch{margin-bottom:10px}.planner-grid>.panel{padding:16px 12px}.planner-grid>.panel .panel-head{margin-bottom:12px}
 }
 @media(min-width:1001px) and (max-height:650px){.planner-grid>.map-panel{position:relative;top:auto;max-height:none;height:480px}}
