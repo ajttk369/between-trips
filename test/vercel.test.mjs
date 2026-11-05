@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { once } from 'node:events';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { readJsonBody, publicUrl, requestOrigin, secureCookies } from '../runtime.mjs';
+import { readJsonBody, publicUrl, requestOrigin, secureCookies, contentSecurityPolicy } from '../runtime.mjs';
 import { createApp } from '../server.mjs';
 import handler from '../api/handler.js';
 
@@ -50,4 +52,24 @@ test('배포 설정은 API 함수와 정적 파일을 분리하고 비밀 파일
   const ignore=readFileSync(new URL('../.vercelignore',import.meta.url),'utf8');assert.match(ignore,/(^|\n)\.env(\n|$)/);assert.match(ignore,/data\//);
   for(const f of ['index.html','app.js','vendor/leaflet.js','setup.sql'])assert.ok(existsSync(new URL('../dist/'+f,import.meta.url)),f);
   for(const f of ['.env','data/travel.sqlite','server.mjs'])assert.equal(existsSync(new URL('../dist/'+f,import.meta.url)),false,f);
+});
+
+test('실제 HTTP와 Vercel의 CSP가 Google 지도·검색을 허용하고 임의 스크립트는 차단한다',async t=>{
+  const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+  const deployed=config.headers.find(h=>h.source==='/(.*)').headers.find(h=>h.key==='Content-Security-Policy').value;
+  assert.equal(deployed,contentSecurityPolicy,'정적 페이지와 서버의 보안 정책이 다르면 배포 후 지도가 차단됨');
+  const directives=Object.fromEntries(deployed.split(';').map(s=>s.trim().split(/\s+/)).filter(p=>p[0]).map(([name,...values])=>[name,values]));
+  const allows=(directive,url)=>directives[directive].includes(new URL(url).origin);
+  for(const script of ['https://maps.googleapis.com/maps/api/js','https://maps.googleapis.com/maps-api-v3/api/js/module.js','https://maps.gstatic.com/maps-api-v3/api/js/module.js'])assert.equal(allows('script-src',script),true,script);
+  for(const endpoint of ['https://places.googleapis.com/v1/places:searchText','https://mapsresources-pa.googleapis.com/v1/tiles','https://maps.googleapis.com/maps/api/mapsjs/mapConfigs'])assert.equal(allows('connect-src',endpoint),true,endpoint);
+  assert.equal(allows('script-src','https://attacker.example/script.js'),false);assert.equal(allows('script-src','https://storage.googleapis.com/untrusted/script.js'),false);
+  assert.ok(!directives['script-src'].includes("'unsafe-inline'"));assert.ok(!directives['script-src'].includes("'unsafe-eval'"));assert.deepEqual(directives['frame-ancestors'],["'none'"]);
+  const previous=process.env.STORAGE_BACKEND;process.env.STORAGE_BACKEND='sqlite';
+  const app=createApp({dataDir:mkdtempSync(path.join(tmpdir(),'travel-csp-'))});
+  if(previous===undefined)delete process.env.STORAGE_BACKEND;else process.env.STORAGE_BACKEND=previous;
+  t.after(()=>app.close());app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+  const base='http://127.0.0.1:'+app.server.address().port;
+  for(const route of ['/','/google-maps.js','/api/auth']){
+    const response=await fetch(base+route);assert.equal(response.status,200);assert.equal(response.headers.get('content-security-policy'),contentSecurityPolicy,route);await response.text();
+  }
 });

@@ -1,3 +1,6 @@
+// Keep this in sync with vercel.json; the deployment test checks both policies.
+// Only the Google Maps SDK hosts may execute scripts. Other providers are called server-side.
+export const contentSecurityPolicy = "default-src 'self'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://places.googleapis.com https://maps.gstatic.com https://csi.gstatic.com https://www.google.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; frame-src https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 export function requestOrigin(req) {
   return `${process.env.VERCEL || req.socket?.encrypted ? 'https' : 'http'}://${req.headers.host}`;
 }

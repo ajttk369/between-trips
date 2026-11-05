@@ -1,4 +1,4 @@
-import { readJsonBody, publicUrl, requestOrigin, secureCookies } from './runtime.mjs';
+import { readJsonBody, publicUrl, requestOrigin, secureCookies, contentSecurityPolicy } from './runtime.mjs';
 import { validateMeta, cleanItem, applyMutation, createDocument } from './travel-domain.mjs';
 export { validateMeta } from './travel-domain.mjs';
 import { createCloudApi } from './supabase-api.mjs';
@@ -223,7 +223,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
   }
   const handler=async (req,res)=>{
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', contentSecurityPolicy);
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (url.pathname.startsWith('/api/')) return await api(req, res, url);
