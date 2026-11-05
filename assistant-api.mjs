@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { applyPlannerChanges, generatePlan } from './ai-planner.mjs';
+import { applyPlannerChanges, generatePlan, selectPlannerChanges } from './ai-planner.mjs';
 import { daysBetween } from './public/domain.js';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function assistantError(error){
@@ -27,7 +27,7 @@ export function createAssistantApi({admin,readBody,generate=generatePlan}){
       if(!proposal||proposal.id!==body.proposalId||conversation.version!==body.version)fail(409,'적용할 제안이 변경됐어요. 대화를 다시 불러와주세요.');
       if(proposal.baseVersion!==trip.version)fail(409,'동행이 일정을 변경했어요. 최신 일정을 기준으로 다시 제안해달라고 요청해주세요.');
       const {id,owner,members,updated,version,...document}=structuredClone(trip);
-      applyPlannerChanges(document,proposal.changes,user);
+      applyPlannerChanges(document,selectPlannerChanges(proposal,body),user);
       return json(await command('apply',trip,user,{p_request:proposal.id,p_expected:conversation.version,p_trip_version:proposal.baseVersion,p_document:document}));
     }
     if(parts[3])fail(404,'없는 AI 기능입니다.');

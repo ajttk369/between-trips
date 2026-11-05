@@ -5,6 +5,20 @@ export function daysBetween(start, end) {
   return result;
 }
 export const hasCoords = p => p && p.lat != null && p.lng != null && p.lat !== '' && p.lng !== '' && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
+export function travelClock(trip, instant = new Date()) {
+  const timeZone=trip.timeZone||(['일본','Japan','JP'].includes(trip.country)?'Asia/Tokyo':trip.type==='domestic'||['한국','대한민국','KR'].includes(trip.country)?'Asia/Seoul':'UTC');
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(instant).map(p=>[p.type,p.value]));
+  return {date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}`,timeZone};
+}
+export function nextTravelStop(trip, instant = new Date()) {
+  const clock=travelClock(trip,instant),during=clock.date>=trip.start&&clock.date<=trip.end,date=during?clock.date:clock.date<trip.start?trip.start:trip.end;
+  const items=trip.itinerary.filter(i=>i.date===date);
+  const timed=items.filter(i=>i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const minutes=s=>Number(s.slice(0,2))*60+Number(s.slice(3,5));
+  const next=during?timed.find(i=>(i.endTime?minutes(i.endTime):minutes(i.startTime)+Number(i.duration||0))>=minutes(clock.time))||items.find(i=>!i.startTime):timed[0]||items[0];
+  const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
+  return {...clock,date,during,items,next,stay};
+}
 export function distance(a, b) {
   if (!hasCoords(a) || !hasCoords(b)) return null;
   const rad = x => x * Math.PI / 180, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);

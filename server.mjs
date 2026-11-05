@@ -27,7 +27,7 @@ const number = (v, min = 0, max = 1e12) => { const n = Number(v || 0); if (!Numb
 const link = v => { if (!v) return ''; try { const u = new URL(v); if (['https:', 'http:'].includes(u.protocol)) return u.href.slice(0, 3000); } catch {} fail(400, 'http 또는 https 링크를 입력해주세요.'); };
 const currency = v => currencies.includes(v) ? v : 'KRW';
 
-export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'data'), cloudFetch, planGenerator } = {}) {
+export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'data'), cloudFetch, planGenerator, serviceFetch=globalThis.fetch } = {}) {
   if(process.env.STORAGE_BACKEND&&!['sqlite','supabase'].includes(process.env.STORAGE_BACKEND))throw new Error('STORAGE_BACKEND는 sqlite 또는 supabase여야 합니다.');
   const cloudMode=process.env.STORAGE_BACKEND==='supabase';
   const db=cloudMode?null:(()=>{
@@ -129,7 +129,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       if (cache.has(key) && cache.get(key).until > Date.now()) return json(cache.get(key).value);
       const target = new URL('https://api.geoapify.com/v1/geocode/search');
       target.search = new URLSearchParams({ text: q, format: 'json', limit: '6', lang: 'ko', apiKey: process.env.GEOAPIFY_API_KEY });
-      const response = await fetch(target, { signal: AbortSignal.timeout(12000) });
+      const response = await serviceFetch(target, { signal: AbortSignal.timeout(12000) });
       if (!response.ok) fail(502, '장소 검색 서비스에 연결하지 못했습니다. 직접 등록을 이용해주세요.');
       const data = await response.json();
       const value = { configured: true, results: (data.results || []).map(p => ({ name: p.name || p.address_line1, address: p.formatted, lat: p.lat, lng: p.lon, source: 'Geoapify · OpenStreetMap', link: `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=17/${p.lat}/${p.lon}` })) };
@@ -144,7 +144,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
       const mode = body.mode === 'drive' ? 'drive' : 'walk', key = `${waypoints}:${mode}`;
       if (cache.has(key) && cache.get(key).until > Date.now()) return json(cache.get(key).value);
       const target = new URL('https://api.geoapify.com/v1/routing'); target.search = new URLSearchParams({ waypoints, mode, apiKey: process.env.GEOAPIFY_API_KEY });
-      const response = await fetch(target, { signal: AbortSignal.timeout(12000) });
+      const response = await serviceFetch(target, { signal: AbortSignal.timeout(12000) });
       if (!response.ok) return json({ available: false, message: '이 구간의 경로 정보를 확인할 수 없습니다.' });
       const feature = (await response.json()).features?.[0];
       const value = feature && Number.isFinite(feature.properties?.distance) && Number.isFinite(feature.properties?.time) ? { available: true, distance: feature.properties.distance, seconds: feature.properties.time, source: 'Geoapify · OpenStreetMap' } : { available: false, message: '지원되는 경로가 없습니다.' };

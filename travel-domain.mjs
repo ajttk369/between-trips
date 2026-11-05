@@ -18,13 +18,15 @@ export function validateMeta(input) {
   if (end < start || (Date.parse(end) - Date.parse(start)) / 86400000 > 366) fail(400, '여행 기간은 출발일 이후부터 최대 367일까지 설정해주세요.');
   const rates = { KRW: 1 };
   for (const [key, value] of Object.entries(input.rates || {})) if (currencies.includes(key) && key !== 'KRW') rates[key] = number(value, .000001, 1e9);
-  return { name: required(input.name, '여행 이름', 100), type: input.type === 'domestic' ? 'domestic' : 'overseas', country: required(input.country, '국가', 80), city: required(input.city, '도시', 100), start, end, companion: text(input.companion, 100), image: link(input.image), note: text(input.note), currency: input.type === 'domestic' ? 'KRW' : currency(input.currency), rates, interests: Array.isArray(input.interests) ? input.interests.filter(x => categories.includes(x)) : [], budget: number(input.budget), sample: Boolean(input.sample) };
+  let timeZone=input.timeZone||(['일본','Japan','JP'].includes(input.country)?'Asia/Tokyo':['대한민국','한국','South Korea','KR'].includes(input.country)||input.type==='domestic'?'Asia/Seoul':'UTC');
+  try{new Intl.DateTimeFormat('ko-KR',{timeZone}).format();}catch{fail(400,'여행 시간대를 확인해주세요.');}
+  return { timeZone, name: required(input.name, '여행 이름', 100), type: input.type === 'domestic' ? 'domestic' : 'overseas', country: required(input.country, '국가', 80), city: required(input.city, '도시', 100), start, end, companion: text(input.companion, 100), image: link(input.image), note: text(input.note), currency: input.type === 'domestic' ? 'KRW' : currency(input.currency), rates, interests: Array.isArray(input.interests) ? input.interests.filter(x => categories.includes(x)) : [], budget: number(input.budget), sample: Boolean(input.sample) };
 }
 
 export function cleanItem(kind, input, doc, actor, old) {
   const item = { id: old?.id || uid(), createdBy: old?.createdBy || actor, createdAt: old?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   if (kind === 'places' || kind === 'stays') {
-    Object.assign(item, { name: required(input.name, '장소 이름'), address: text(input.address, 1000), category: kind === 'stays' ? '숙소' : (categories.includes(input.category) ? input.category : '관광'), link: link(input.link), photo: link(input.photo), note: text(input.note), cost: number(input.cost), currency: currency(input.currency), source: text(input.source, 300) || '직접 등록' });
+    Object.assign(item, { name: required(input.name, '장소 이름'), address: text(input.address, 1000), category: kind === 'stays' ? '숙소' : (categories.includes(input.category) ? input.category : '관광'), link: link(input.link), photo: link(input.photo), note: text(input.note), cost: number(input.cost), currency: currency(input.currency), source: text(input.source, 300) || '직접 등록', costKnown: input.costKnown!==undefined?Boolean(input.costKnown):(old?.costKnown??true), hoursVerified: old?.hoursVerified??false });
     const hasLat = input.lat !== '' && input.lat != null, hasLng = input.lng !== '' && input.lng != null;
     if (hasLat !== hasLng) fail(400, '위도와 경도를 함께 입력해주세요.');
     item.lat = hasLat ? number(input.lat, -90, 90) : null;
@@ -54,6 +56,8 @@ export function cleanItem(kind, input, doc, actor, old) {
 
 
 export function applyMutation(doc, body, user) {
+      const before=body.collection?doc[body.collection]?.find(x=>x.id===(body.itemId||body.value?.id)):null;
+      let activityName=before?.name||body.value?.name||'';
       if (body.action === 'meta') Object.assign(doc, validateMeta(body.value));
       else if (body.action === 'upsert') {
         const kind = body.collection; if (!collections.includes(kind)) fail(400, '잘못된 항목입니다.');
@@ -61,6 +65,7 @@ export function applyMutation(doc, body, user) {
         if (body.value?.id && !old) fail(404, '항목이 삭제되었습니다.');
         if (doc[kind].length >= 1000 && !old) fail(400, '항목은 최대 1,000개까지 저장할 수 있습니다.');
         const item = cleanItem(kind, body.value || {}, doc, user.id, old);
+        activityName=item.name;
         if (kind === 'places' && doc.places.some(x => x.id !== item.id && x.name.toLowerCase() === item.name.toLowerCase() && x.address === item.address)) fail(409, '이미 저장한 장소입니다. 기존 장소를 확인해주세요.');
         if (old) doc[kind][doc[kind].indexOf(old)] = item;
         else if (kind === 'itinerary') {
@@ -70,8 +75,15 @@ export function applyMutation(doc, body, user) {
         if (kind === 'places' || kind === 'stays') for (const event of doc.itinerary) if (event.placeId === item.id) { event.name = item.name; event.category = item.category; }
       } else if (body.action === 'delete') {
         if (!collections.includes(body.collection)) fail(400, '잘못된 항목입니다.');
-        if (['places', 'stays'].includes(body.collection)) for (const item of doc.itinerary) if (item.placeId === body.itemId) item.placeId = '';
-        doc[body.collection] = doc[body.collection].filter(x => x.id !== body.itemId);
+        if (!before) fail(404,'이미 삭제된 항목입니다.');
+        const removePlaces=new Set();
+        if (body.collection==='itinerary'&&body.deletePlace&&before.placeId&&doc.places.some(x=>x.id===before.placeId))removePlaces.add(before.placeId);
+        if (body.collection==='places')removePlaces.add(before.id);
+        if(body.collection==='places'&&body.deleteLinked)doc.itinerary=doc.itinerary.filter(x=>x.placeId!==before.id);
+        doc.places=doc.places.filter(x=>!removePlaces.has(x.id));
+        for(const item of doc.itinerary)if(removePlaces.has(item.placeId)||(body.collection==='stays'&&item.placeId===before.id))item.placeId='';
+        doc[body.collection]=doc[body.collection].filter(x=>x.id!==body.itemId);
+
       } else if (body.action === 'like' || body.action === 'comment') {
         const p = doc.places.find(x => x.id === body.itemId); if (!p) fail(404, '장소를 찾을 수 없습니다.');
         if (body.action === 'like') p.likes = p.likes.includes(user.id) ? p.likes.filter(x => x !== user.id) : [...p.likes, user.id];
@@ -90,6 +102,10 @@ export function applyMutation(doc, body, user) {
         if (doc.itinerary.some(x => x.date === day && x.placeId === stay.id && ['숙소 출발', '숙소 도착'].includes(x.note))) fail(409, '이 날짜에 이미 숙소 동선이 적용되어 있습니다.');
         const same = doc.itinerary.filter(x => x.date === day); doc.itinerary = [...doc.itinerary.filter(x => x.date !== day), first, ...same, last];
       } else fail(400, '지원하지 않는 변경입니다.');
+  const labels={places:'장소',itinerary:'일정',stays:'숙소',reservations:'예약',tasks:'할 일',expenses:'지출'};
+  const action=body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
+  if(!activityName)activityName=body.action==='meta'?doc.name:body.itemId?doc.places.find(x=>x.id===body.itemId)?.name||'':'';
+  doc.activity=[...(Array.isArray(doc.activity)?doc.activity:[]).slice(-29),{id:uid(),actor:user.id,name:text(user.name,40)||'동행',action,collection:body.collection||'',title:text(activityName,200)||labels[body.collection]||'여행',at:new Date().toISOString()}];
   return doc;
 }
 

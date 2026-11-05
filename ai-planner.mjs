@@ -69,6 +69,17 @@ export function prepareProposal(raw,response,trip,previousProposal=null){
   const used=new Set(accepted.flatMap(c=>c.sourceUrls));
   return {reply:raw.reply.slice(0,5000),proposal:accepted.length?{id:randomUUID(),baseVersion:trip.version,createdAt:new Date().toISOString(),changes:accepted,sources:[...sources.values()].filter(s=>used.has(s.url)),issues:issues.slice(0,20)}:null,issues:issues.slice(0,20)};
 }
+export function selectPlannerChanges(proposal,body){
+  const ids=body.changeIds??proposal.changes.map(c=>c.changeId);
+  if(!Array.isArray(ids)||!ids.length||ids.length>20||new Set(ids).size!==ids.length||ids.some(id=>!proposal.changes.some(c=>c.changeId===id)))fail(400,'반영할 변경안을 하나 이상 선택해주세요.');
+  const locations=body.locations??[];
+  if(!Array.isArray(locations)||locations.length>20||locations.some(x=>!x||typeof x!=='object')||new Set(locations.map(x=>x.changeId)).size!==locations.length)fail(400,'확인한 위치를 다시 선택해주세요.');
+  for(const location of locations){
+    const c=proposal.changes.find(c=>c.changeId===location.changeId);
+    if(!ids.includes(location.changeId)||!c||c.operation==='remove'||c.placeId||c.target==='itinerary'&&!c.sourceUrls?.length||typeof location.lat!=='number'||!Number.isFinite(location.lat)||Math.abs(location.lat)>90||typeof location.lng!=='number'||!Number.isFinite(location.lng)||Math.abs(location.lng)>180)fail(400,'확인한 지도 위치가 올바르지 않아요.');
+  }
+  return proposal.changes.filter(c=>ids.includes(c.changeId)).map(original=>{const c=structuredClone(original),location=locations.find(x=>x.changeId===c.changeId);if(location){c.confirmedLocation={lat:location.lat,lng:location.lng};if(location.address)c.address=String(location.address).trim().slice(0,1000);}return c;});
+}
 export function applyPlannerChanges(doc,changes,user){
   for(const c of changes){
     if(c.operation==='remove'){applyMutation(doc,{action:'delete',collection:c.target,itemId:c.id},user);continue;}
@@ -77,14 +88,15 @@ export function applyPlannerChanges(doc,changes,user){
     let p=[...doc.places,...doc.stays].find(x=>x.id===c.placeId);
     if(c.target==='itinerary'&&!p&&c.sourceUrls.length){
       p=doc.places.find(x=>x.name===c.name&&x.address===c.address);
-      if(!p){applyMutation(doc,{action:'upsert',collection:'places',value:{name:c.name,address:c.address,category:c.category,currency:c.currency,cost:c.cost,source:'OpenAI 웹 검색 참고',link:c.sourceUrls[0],note:c.note}},user);p=doc.places.at(-1);}
+      if(!p){applyMutation(doc,{action:'upsert',collection:'places',value:{name:c.name,address:c.address,category:c.category,currency:c.currency,cost:c.cost,costKnown:c.costKnown,source:'OpenAI 웹 검색 참고',link:c.sourceUrls[0],note:c.note,...c.confirmedLocation}},user);p=doc.places.at(-1);}
+      else if(c.confirmedLocation){applyMutation(doc,{action:'upsert',collection:'places',value:{...p,...c.confirmedLocation}},user);p=doc.places.find(x=>x.id===p.id);}
     }
     const value={...old,...c,id:c.operation==='update'?old.id:undefined,
       placeId:p?.id||'',cost:c.costKnown?c.cost:(old?.cost||0),currency:c.costKnown?c.currency:(old?.currency||c.currency),link:c.sourceUrls[0]||old?.link||'',source:c.sourceUrls.length?'OpenAI 웹 검색 참고':old?.source,
       note:[c.note,c.reason?`AI 제안: ${c.reason}`:'',!c.costKnown?'가격 확인 필요':''].filter(Boolean).join('\n').slice(0,3000)};
     if(c.target==='places'){
       // AI가 추측한 좌표를 저장하지 않습니다. 기존 장소가 바뀌면 위치를 다시 확인합니다.
-      value.lat=old?.name===c.name?old.lat:null;value.lng=old?.name===c.name?old.lng:null;
+      value.lat=c.confirmedLocation?.lat??(old?.name===c.name?old.lat:null);value.lng=c.confirmedLocation?.lng??(old?.name===c.name?old.lng:null);
     }
     applyMutation(doc,{action:'upsert',collection:c.target,value},user);
   }
