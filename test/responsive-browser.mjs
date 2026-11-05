@@ -39,12 +39,21 @@ try{
   await command('Page.navigate',{url:origin+'/?qa=1#trip='+trip.id});try{await wait(`!!document.querySelector('.trip-banner')`);}catch(error){console.log('UI diagnostic',await evaluate(`document.body.innerText`),errors);throw error;}
   for(const width of [320,375,760,768,1000,1024,1440]){
     await viewport(width);
-    for(const tab of ['itinerary','places','stays','tasks','budget','assistant']){await click('[data-tab="'+tab+'"]');await sleep(80);await fits(tab+' '+width);}
+    for(const tab of ['itinerary','places','stays','tasks','budget','assistant']){if(width<=760&&!['itinerary','places'].includes(tab)){await click('[data-action="mobile-trip-more"]');await click('dialog [data-tab="'+tab+'"]');}else await click('[data-tab="'+tab+'"]');await sleep(80);await fits(tab+' '+width);}
     await click('[data-tab="itinerary"]');
-    if(width<=1000){assert.ok(await evaluate(`document.querySelector('.mobile-toggle').offsetHeight>0`));await click('[data-action="show-map"]');await wait(`document.querySelector('#map').offsetHeight>0`);await fits('map '+width);if(width===768)await screenshot('map-tablet');await click('[data-action="show-list"]');}
+    if(width<=1000){if(width<=760){assert.ok(await evaluate(`document.querySelector('.mobile-trip-nav').offsetHeight>0`));await click('.mobile-trip-nav [data-view="map"]');}else{assert.ok(await evaluate(`document.querySelector('.mobile-toggle').offsetHeight>0`));await click('[data-action="show-map"]');}await wait(`document.querySelector('#map').offsetHeight>0`);await fits('map '+width);if(width===768)await screenshot('map-tablet');if(width<=760)await click('.mobile-trip-nav [data-view="list"]');else await click('[data-action="show-list"]');}
     if(width===375)await screenshot('itinerary-mobile');if(width===1440)await screenshot('itinerary-desktop');
-    await click('[data-action="new-itinerary"]');await fits('form '+width);if(width<=760)assert.ok(await evaluate(`parseFloat(getComputedStyle(document.querySelector('dialog input')).fontSize)>=16`));await click('[data-action="close-modal"]');
+    if(width<=760){await click('[data-action="mobile-add"]');await click('dialog [data-action="new-itinerary"]');}else await click('[data-action="new-itinerary"]');await fits('form '+width);if(width<=760)assert.ok(await evaluate(`parseFloat(getComputedStyle(document.querySelector('dialog input')).fontSize)>=16`));await click('[data-action="close-modal"]');
     if(width<=760){await click('[data-action="mobile-menu"]');await wait(`!!document.querySelector('.mobile-menu-list')`);await fits('menu '+width);await click('[data-action="close-modal"]');}
   }
+  await viewport(375);await click('[data-action="mobile-trip-more"]');await click('dialog [data-tab="tasks"]');
+  const checkbox='[data-action="toggle-task"]';
+  assert.equal(await evaluate(`(()=>{document.querySelector('button[data-action="toggle-task"]').click();return document.querySelector('button[data-action="toggle-task"]').getAttribute('aria-pressed');})()`),'true');
+  await wait(`!document.querySelector('.task-pending')`);
+  const alignment=await evaluate(`(()=>{const b=document.querySelector('button[data-action="toggle-task"]').getBoundingClientRect(),s=document.querySelector('button[data-action="toggle-task"] svg').getBoundingClientRect();return {x:Math.abs((b.left+b.right-s.left-s.right)/2),y:Math.abs((b.top+b.bottom-s.top-s.bottom)/2)}})()`);assert.ok(alignment.x<1&&alignment.y<1,JSON.stringify(alignment));await fits('checked task mobile');await screenshot('tasks-mobile');
+  await click('[data-action="mobile-trip-more"]');await click('dialog [data-tab="budget"]');await click('[data-action="mobile-add"]');await click('dialog [data-action="new-expense"]');
+  assert.ok(await evaluate(`document.querySelector('[name="includeSettlement"]').checked`));
+  await evaluate(`document.querySelector('[name="name"]').value='샘플 · 내가 내는 선물';document.querySelector('[name="amount"]').value='1000';document.querySelector('[name="includeSettlement"]').checked=false;document.querySelector('#modal-form').requestSubmit();`);
+  await wait(`!document.querySelector('#modal').open`);const saved=(await api('/trips/'+trip.id)).value;assert.equal(saved.expenses.at(-1).excludeFromSettlement,true);assert.equal(saved.tasks[0].done,true);await fits('expense mobile');
   assert.deepEqual(errors,[]);console.log('PASS: real Edge layout checks at 320/375/760/768/1000/1024/1440px, six tabs, tablet map switch, dialogs, mobile menu and gallery controls.');
 }finally{try{if(ws?.readyState===1)await command('Browser.close');}catch{}ws?.close();browser?.kill();await app.close();}

@@ -57,17 +57,18 @@ export function budgetOf(trip) {
   for (const item of actual) { const n = converted(item.amount, item.currency, trip.rates); if (n != null) { categories[item.category || '기타'] = (categories[item.category || '기타'] || 0) + n; byDate[item.date] = (byDate[item.date] || 0) + n; } }
   let settlement = 0;
   const owner = trip.owner, partner = trip.members.find(m => m.id !== owner);
-  const invalidPayers = [];
+  const invalidPayers = [], settlementMissing=new Set();
   for (const item of actual) {
+    if(item.excludeFromSettlement===true)continue;
     const n = converted(item.amount, item.currency, trip.rates);
-    if (n == null) continue;
+    if (n == null) {settlementMissing.add(item.currency);continue;}
     if (item.payer === owner) settlement += n * Number(item.share ?? 50) / 100;
     else if (partner && item.payer === partner.id) settlement -= n * Number(item.share ?? 50) / 100;
     else invalidPayers.push(item);
   }
   const limit = converted(trip.budget, trip.currency, trip.rates);
   if (limit == null) missing.add(trip.currency);
-  return { estimates, actual, planned, spent, categories, byDate, settlement, partner, missing: [...missing], invalidPayers, limit };
+  return { estimates, actual, planned, spent, categories, byDate, settlement, partner, missing: [...missing], settlementMissing:[...settlementMissing], invalidPayers, excludedCount:actual.filter(i=>i.excludeFromSettlement===true).length, limit };
 }
 export function itineraryWarnings(items, trip, routeSeconds = {}) {
   const mins = s => Number(s?.split(':')[0] || 0) * 60 + Number(s?.split(':')[1] || 0), warnings = [];

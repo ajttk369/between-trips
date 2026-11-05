@@ -54,6 +54,10 @@ export function cleanItem(kind, input, doc, actor, old) {
     if (source && doc.expenses.some(x => x.sourceId === source && x.id !== old?.id)) fail(409, '이미 실제 지출이 연결되어 있습니다.');
     Object.assign(item, { name: required(input.name, '지출 이름'), date: date(input.date, '지출 날짜'), category: categories.includes(input.category) ? input.category : '기타', amount: number(input.amount), currency: currency(input.currency), payer: text(input.payer, 100) || actor, share: number(input.share ?? 50, 0, 100), note: text(input.note), sourceId: source });
   }
+  if (['stays','reservations','expenses'].includes(kind)) {
+    if(input.excludeFromSettlement!==undefined&&typeof input.excludeFromSettlement!=='boolean')fail(400,'정산 포함 여부를 확인해주세요.');
+    item.excludeFromSettlement=input.excludeFromSettlement??old?.excludeFromSettlement??false;
+  }
   if (kind === 'stays' || kind === 'reservations') {
     try { item.attachments = cleanAttachments(input.attachments ?? old?.attachments ?? []); }
     catch (error) { fail(400,error.message); }
@@ -100,6 +104,12 @@ export function applyMutation(doc, body, user) {
       let activityName=before?.name||body.value?.name||'';
       if (body.action === 'restore') activityName=restoreDeletion(doc,body.deletionId,user);
       else if (body.action === 'meta') Object.assign(doc, validateMeta(body.value));
+      else if (body.action === 'taskDone') {
+        const task=doc.tasks.find(item=>item.id===body.itemId);
+        if(!task)fail(404,'준비물이 삭제됐어요.');
+        if(typeof body.done!=='boolean')fail(400,'체크 상태를 확인해주세요.');
+        task.done=body.done;task.updatedAt=new Date().toISOString();activityName=task.name;
+      }
       else if (body.action === 'scheduleMany') {
         const day = date(body.date,'일정 날짜'), ids = body.placeIds;
         if (day < doc.start || day > doc.end) fail(400,'여행 기간 안의 날짜를 선택해주세요.');
@@ -172,7 +182,7 @@ export function applyMutation(doc, body, user) {
         const same = doc.itinerary.filter(x => x.date === day); doc.itinerary = [...doc.itinerary.filter(x => x.date !== day), first, ...same, last];
       } else fail(400, '지원하지 않는 변경입니다.');
   const labels={places:'장소',itinerary:'일정',stays:'숙소',reservations:'예약',tasks:'할 일',expenses:'지출'};
-  const action=body.action==='scheduleMany'?'일정에 추가':body.action==='transferItinerary'?(body.mode==='copy'?'일정 복사':'날짜 이동'):body.action==='restore'?'삭제 취소':body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
+  const action=body.action==='taskDone'?(body.done?'준비 완료':'체크 해제'):body.action==='scheduleMany'?'일정에 추가':body.action==='transferItinerary'?(body.mode==='copy'?'일정 복사':'날짜 이동'):body.action==='restore'?'삭제 취소':body.action==='delete'?'삭제':body.action==='upsert'?(before?'수정':'추가'):body.action==='reorder'?'순서 변경':body.action==='like'?'가고 싶어요 변경':body.action==='comment'?'댓글 추가':body.action==='meta'?'여행 정보 수정':'숙소 동선 추가';
   if(!activityName)activityName=body.action==='meta'?doc.name:body.itemId?doc.places.find(x=>x.id===body.itemId)?.name||'':'';
   doc.activity=[...(Array.isArray(doc.activity)?doc.activity:[]).slice(-29),{id:uid(),actor:user.id,name:text(user.name,40)||'동행',action,collection:body.collection||'',title:text(activityName,200)||labels[body.collection]||'여행',at:new Date().toISOString()}];
   validateDocumentCapacity(doc);return doc;
