@@ -41,6 +41,8 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
     CREATE TABLE IF NOT EXISTS members (trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id), role TEXT NOT NULL, PRIMARY KEY(trip_id,user_id));
     CREATE TABLE IF NOT EXISTS invites (id TEXT PRIMARY KEY, trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE, token TEXT NOT NULL UNIQUE, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
   `);
+  const userColumns=db.prepare('PRAGMA table_info(users)').all().map(column=>column.name);
+  for(const column of ['created','last_login'])if(!userColumns.includes(column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
   return db;
   })();
   const streams = new Set(), attempts = new Map(), cache = new Map();
@@ -72,6 +74,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
   };
   const readBody=readJsonBody;
   const session = (res, user) => {
+    db.prepare('UPDATE users SET last_login=? WHERE id=?').run(new Date().toISOString(),user.id);
     db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());
     const token = randomBytes(32).toString('hex');
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400000);
@@ -114,7 +117,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || path.join(root, 'd
         const name = required(body.name, '이름', 40), salt = randomBytes(16).toString('hex');
         const derived = await derive(password, salt, 64);
         user = { id: uid(), email, name };
-        try { db.prepare('INSERT INTO users VALUES (?,?,?,?)').run(user.id, email, name, `${salt}:${derived.toString('hex')}`); }
+        try { db.prepare('INSERT INTO users(id,email,name,password,created) VALUES (?,?,?,?,?)').run(user.id, email, name, `${salt}:${derived.toString('hex')}`,new Date().toISOString()); }
         catch (e) { if (e.code?.includes('SQLITE')) fail(409, '이미 등록된 이메일입니다.'); throw e; }
       } else {
         const row = db.prepare('SELECT * FROM users WHERE email=?').get(email);
