@@ -59,6 +59,18 @@ try{
   await click('[data-event-details] summary');await wait(`document.querySelector('[data-event-details]').open`);
   await click('[data-action="select-item"]');assert.ok(await evaluate(`document.querySelector('[data-event-details]').open`));await screenshot('expanded-event-mobile');
   await click('[data-event-details] summary');await wait(`!document.querySelector('[data-event-details]').open`);await screenshot('compact-event-mobile');
+  await click('.day-overview>summary');await wait(`document.querySelector('.day-overview').open`);assert.ok(await evaluate(`document.querySelector('.day-overview .quick-expanded')!==null`));await fits('expanded day overview mobile');await click('.day-overview>summary');
+  const completedId=trip.itinerary[0].id,completeButton='[data-action="toggle-event-done"][data-id="'+completedId+'"]';
+  assert.equal(await evaluate(`(()=>{const button=document.querySelector(${JSON.stringify(completeButton)});button.click();return button.getAttribute('aria-pressed')})()`),'true');
+  await wait(`!document.querySelector('.event-complete.pending')`);assert.equal((await other('/trips/'+trip.id)).value.itinerary[0].done,true);await fits('itinerary completed mobile');await screenshot('completed-event-mobile');
+  await command('Page.reload',{ignoreCache:true});await wait(`!!document.querySelector(${JSON.stringify(completeButton)})`);assert.equal(await evaluate(`document.querySelector(${JSON.stringify(completeButton)}).getAttribute('aria-pressed')`),'true');
+  await click(completeButton);await wait(`!document.querySelector('.event-complete.pending')`);
+  const modeId=trip.itinerary[1].id;
+  await evaluate(`(()=>{const select=document.querySelector('[data-route-mode="${modeId}"]');select.value='transit';select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await wait(`document.querySelector('[data-route-mode="${modeId}"]')?.value==='transit'&&!document.querySelector('[data-route-mode="${modeId}"]').disabled`);assert.equal((await other('/trips/'+trip.id)).value.itinerary[1].mode,'transit');assert.ok(await evaluate(`document.querySelector('[data-route-mode="${modeId}"]').parentElement.querySelector('a').href.includes('travelmode=transit')`));
+  await viewport(1440);await evaluate(`(()=>{const panel=document.querySelector('.planner-grid>.panel');panel.style.minHeight='1600px';window.scrollTo(0,document.querySelector('.planner-grid').getBoundingClientRect().top+window.scrollY+120)})()`);await sleep(100);
+  const sticky=await evaluate(`({position:getComputedStyle(document.querySelector('.planner-grid>.map-panel')).position,top:document.querySelector('.planner-grid>.map-panel').getBoundingClientRect().top})`);assert.equal(sticky.position,'sticky');assert.ok(Math.abs(sticky.top-92)<2,JSON.stringify(sticky));await screenshot('sticky-map-desktop');
+  await evaluate(`document.querySelector('.planner-grid>.panel').style.minHeight='';window.scrollTo(0,0)`);await viewport(375);
   await click('[data-mode="journey"]');await wait(`!!document.querySelector('.journey-view')`);assert.ok(await evaluate(`document.querySelector('.journey-view').innerText.includes('미리보기')`));await fits('journey preview mobile');
   await command('Page.addScriptToEvaluateOnNewDocument',{source:`{const RealDate=Date;const instant='2027-01-01T01:30:00Z';globalThis.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[instant]));}static now(){return new RealDate(instant).getTime();}};}`});
   await command('Page.reload',{ignoreCache:true});await wait(`!!document.querySelector('.journey-view')`);

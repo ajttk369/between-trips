@@ -20,23 +20,23 @@ export function travelClock(trip, instant = new Date()) {
 export function nextTravelStop(trip, instant = new Date()) {
   const clock=travelClock(trip,instant),during=clock.date>=trip.start&&clock.date<=trip.end,date=during?clock.date:clock.date<trip.start?trip.start:trip.end;
   const items=trip.itinerary.filter(i=>i.date===date);
-  const timed=items.filter(i=>i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const timed=items.filter(i=>!i.done&&i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
   const minutes=s=>Number(s.slice(0,2))*60+Number(s.slice(3,5));
-  const next=during?timed.find(i=>(i.endTime?minutes(i.endTime):minutes(i.startTime)+Number(i.duration||0))>=minutes(clock.time))||items.find(i=>!i.startTime):timed[0]||items[0];
+  const next=during?timed.find(i=>(i.endTime?minutes(i.endTime):minutes(i.startTime)+Number(i.duration||0))>=minutes(clock.time))||items.find(i=>!i.done&&!i.startTime):timed[0]||items.find(i=>!i.done);
   const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
   return {...clock,date,during,items,next,stay};
 }
 export function overviewForDay(trip,date,instant=new Date()){
   const today=nextTravelStop(trip,instant),clock=travelClock(trip,instant);
   if(date===clock.date&&today.during)return today;
-  const items=trip.itinerary.filter(i=>i.date===date),timed=items.filter(i=>i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const items=trip.itinerary.filter(i=>i.date===date),timed=items.filter(i=>!i.done&&i.startTime).sort((a,b)=>a.startTime.localeCompare(b.startTime));
   const stay=trip.stays.find(s=>s.status==='예약 완료'&&s.checkIn<=date&&s.checkOut>date)||trip.stays.find(s=>s.status==='예약 완료'&&s.checkOut===date);
-  return {...clock,date,during:false,items,next:timed[0]||items[0],stay};
+  return {...clock,date,during:false,items,next:timed[0]||items.find(i=>!i.done),stay};
 }
 export function journeyOverview(trip,instant=new Date()){
   const overview=nextTravelStop(trip,instant),minutes=time=>Number(time.slice(0,2))*60+Number(time.slice(3,5)),now=minutes(overview.time);
-  const timed=overview.items.filter(item=>item.startTime).slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
-  const untimed=overview.items.filter(item=>!item.startTime);
+  const timed=overview.items.filter(item=>!item.done&&item.startTime).slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const untimed=overview.items.filter(item=>!item.done&&!item.startTime);
   const active=overview.during?timed.filter(item=>minutes(item.startTime)<=now&&(item.endTime?minutes(item.endTime):minutes(item.startTime)+Number(item.duration||0))>now).at(-1)||null:null;
   const future=overview.during?timed.filter(item=>item.id!==active?.id&&minutes(item.startTime)>=now):timed;
   const next=future[0]||untimed[0]||null,following=future.length>1?future[1]:next&&untimed.find(item=>item.id!==next.id)||null;
