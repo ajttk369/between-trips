@@ -65,5 +65,14 @@ try{
   assert.equal(await evaluate(`document.querySelector('.journey-next h3').textContent`),trip.places[1].name);
   for(const width of [320,375,768,1440]){await viewport(width);await fits('during-trip '+width);if(width===375)await screenshot('journey-mobile');if(width===1440)await screenshot('journey-desktop');}
   await click('.journey-next [data-action="journey-event"]');await wait(`!document.querySelector('.journey-view')`);assert.ok(await evaluate(`!!document.querySelector('.event-details[open]')`));
-  assert.deepEqual(errors,[]);console.log('PASS: layouts at 320–1440px, six tabs, task checks, settlement exclusion, collapsed cards, retained expansion and automatic during-trip screen.');
+  await viewport(375);await click('[data-action="mobile-trip-more"]');await click('dialog [data-tab="budget"]');
+  const sourceId=trip.itinerary[0].id,sourceButton=`[data-action="record-estimate"][data-id="${sourceId}"]`;
+  await click(sourceButton);assert.equal(await evaluate(`document.querySelector('[name="syncEstimate"]').checked`),false);
+  await evaluate(`document.querySelector('[name="amount"]').value='58000';document.querySelector('[name="currency"]').value='KRW';document.querySelector('#modal-form').requestSubmit();`);await wait(`!document.querySelector('#modal').open`);
+  let linked=(await api('/trips/'+trip.id)).value;assert.equal(linked.itinerary[0].cost,2000);assert.equal(linked.expenses.find(e=>e.sourceId===sourceId).amount,58000);
+  const count=linked.expenses.length;assert.equal(await evaluate(`document.querySelector(${JSON.stringify(sourceButton)}).textContent`),'지출 수정');
+  await click(sourceButton);assert.equal(await evaluate(`document.querySelector('[name="amount"]').value`),'58000');assert.equal(await evaluate(`document.querySelector('[name="currency"]').value`),'KRW');
+  await evaluate(`document.querySelector('[name="syncEstimate"]').checked=true;document.querySelector('#modal-form').requestSubmit();`);await wait(`!document.querySelector('#modal').open`);
+  linked=(await api('/trips/'+trip.id)).value;assert.equal(linked.itinerary[0].cost,58000);assert.equal(linked.itinerary[0].currency,'KRW');assert.equal(linked.expenses.length,count);await fits('linked estimate mobile');await screenshot('linked-expense-mobile');
+  assert.deepEqual(errors,[]);console.log('PASS: responsive layouts, task checks, settlement exclusion, compact cards, during-trip screen, linked actual editing and optional estimate synchronization.');
 }finally{try{if(ws?.readyState===1)await command('Browser.close');}catch{}ws?.close();browser?.kill();await app.close();}

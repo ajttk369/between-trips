@@ -58,11 +58,11 @@ export function budgetOf(trip) {
     ...trip.stays.filter(x => x.status === '예약 완료').map(x => ({ ...x, category: '숙소', amount: x.cost, date: x.checkIn, kind: 'stays' })),
     ...trip.reservations.map(x => ({ ...x, category: '이동', amount: x.cost, kind: 'reservations' })),
     ...trip.itinerary.filter(x => x.category !== '숙소').map(x => ({ ...x, amount: x.cost, kind: 'itinerary' }))
-  ];
+  ].map(item=>({...item,linkedExpense:trip.expenses.find(expense=>expense.sourceId===item.id)||null}));
   const linked = new Set(trip.expenses.map(x => x.sourceId).filter(Boolean));
   const actual = [...estimates.filter(x => x.paid && !linked.has(x.id)), ...trip.expenses];
-  const missing = new Set(), sum = items => items.reduce((total, item) => { const n = converted(item.amount, item.currency, trip.rates); if (n == null) missing.add(item.currency); return total + (n || 0); }, 0);
-  const planned = sum(estimates), spent = sum(actual), categories = {}, byDate = {};
+  const missing = new Set(),plannedMissing=new Set(),spentMissing=new Set(),sum = (items,section) => items.reduce((total, item) => { const n = converted(item.amount, item.currency, trip.rates); if (n == null) {missing.add(item.currency);section.add(item.currency);} return total + (n || 0); }, 0);
+  const planned = sum(estimates,plannedMissing), spent = sum(actual,spentMissing), categories = {}, byDate = {};
   for (const item of actual) { const n = converted(item.amount, item.currency, trip.rates); if (n != null) { categories[item.category || '기타'] = (categories[item.category || '기타'] || 0) + n; byDate[item.date] = (byDate[item.date] || 0) + n; } }
   let settlement = 0;
   const owner = trip.owner, partner = trip.members.find(m => m.id !== owner);
@@ -77,7 +77,7 @@ export function budgetOf(trip) {
   }
   const limit = converted(trip.budget, trip.currency, trip.rates);
   if (limit == null) missing.add(trip.currency);
-  return { estimates, actual, planned, spent, categories, byDate, settlement, partner, missing: [...missing], settlementMissing:[...settlementMissing], invalidPayers, excludedCount:actual.filter(i=>i.excludeFromSettlement===true).length, limit };
+  return { estimates, actual, planned, spent, categories, byDate, settlement, partner, missing: [...missing],plannedMissing:[...plannedMissing],spentMissing:[...spentMissing], settlementMissing:[...settlementMissing], invalidPayers, excludedCount:actual.filter(i=>i.excludeFromSettlement===true).length, limit };
 }
 export function itineraryWarnings(items, trip, routeSeconds = {}) {
   const mins = s => Number(s?.split(':')[0] || 0) * 60 + Number(s?.split(':')[1] || 0), warnings = [];

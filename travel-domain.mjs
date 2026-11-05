@@ -143,6 +143,15 @@ export function applyMutation(doc, body, user) {
         if (body.value?.id && !old) fail(404, '항목이 삭제되었습니다.');
         if (doc[kind].length >= 1000 && !old) fail(400, '항목은 최대 1,000개까지 저장할 수 있습니다.');
         const item = cleanItem(kind, body.value || {}, doc, user.id, old);
+        if(body.syncEstimate!==undefined&&typeof body.syncEstimate!=='boolean')fail(400,'예상 비용 함께 수정 여부를 확인해주세요.');
+        let syncSource=null;
+        if(body.syncEstimate){
+          if(kind!=='expenses'||!item.sourceId)fail(400,'예상 비용과 연결한 지출만 함께 수정할 수 있어요.');
+          const sourceKind=['stays','reservations','itinerary'].find(key=>doc[key].some(value=>value.id===item.sourceId));
+          const source=sourceKind&&doc[sourceKind].find(value=>value.id===item.sourceId);
+          if(!source||sourceKind==='itinerary'&&source.category==='숙소')fail(400,'이 항목의 예상 비용을 함께 수정할 수 없어요.');
+          syncSource={kind:sourceKind,old:source,value:cleanItem(sourceKind,{...source,cost:item.amount,currency:item.currency},doc,user.id,source)};
+        }
         activityName=item.name;
         if (kind === 'places' && doc.places.some(x => x.id !== item.id && (item.googlePlaceId&&x.googlePlaceId===item.googlePlaceId||x.name.toLowerCase() === item.name.toLowerCase() && x.address === item.address))) fail(409, '이미 저장한 장소입니다. 기존 장소를 확인해주세요.');
         if (old) doc[kind][doc[kind].indexOf(old)] = item;
@@ -150,6 +159,7 @@ export function applyMutation(doc, body, user) {
           const before = doc.itinerary.findIndex(x => x.date === item.date && ((item.startTime && x.startTime && item.startTime < x.startTime) || x.note === '숙소 도착'));
           if (before >= 0) doc.itinerary.splice(before, 0, item); else doc.itinerary.push(item);
         } else doc[kind].push(item);
+        if(syncSource)doc[syncSource.kind][doc[syncSource.kind].indexOf(syncSource.old)]=syncSource.value;
         if (kind === 'places' || kind === 'stays') for (const event of doc.itinerary) if (event.placeId === item.id) { event.name = item.name; event.category = item.category; }
       } else if (body.action === 'delete') {
         if (!collections.includes(body.collection)) fail(400, '잘못된 항목입니다.');
