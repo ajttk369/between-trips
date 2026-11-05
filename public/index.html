@@ -6,15 +6,18 @@
   <meta name="theme-color" content="#f8f9fb">
   <meta name="description" content="좋아하는 장소를 함께 모으고, 우리만의 여행을 만들어가는 공간.">
   <title>여행의 사이 — 둘이 만드는 여행</title>
-  <link rel="icon" href="/scene.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png?v=1" type="image/png" sizes="32x32">
+  <link rel="icon" href="/favicon-16.png?v=1" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=1" sizes="180x180">
+  <link rel="preload" href="/travel-logo.png?v=1" as="image">
   <link rel="stylesheet" href="/vendor/leaflet.css">
-  <link rel="stylesheet" href="/style.css?v=4">
+  <link rel="stylesheet" href="/style.css?v=5">
   <link rel="stylesheet" href="/improvements.css?v=3">
   <script src="/vendor/leaflet.js" defer></script>
-  <script src="/app.js?v=6" type="module"></script>
+  <script src="/app.js?v=7" type="module"></script>
 </head>
 <body>
-  <div id="app"><div class="boot"><span class="brand-symbol">↗</span><p>우리의 다음 여행을 준비하고 있어요.</p></div></div>
+  <div id="app"><div class="boot"><span class="brand-symbol"><img src="/travel-logo.png?v=1" width="38" height="38" alt="여행의 사이"></span><p>여행을 불러오는 중이에요.</p></div></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <dialog id="modal" aria-labelledby="modal-title"></dialog>
 </body>

@@ -11,3 +11,7 @@ svg{width:18px;height:18px;flex-shrink:0}.auth-note svg{width:12px;height:12px;v
 @media(max-width:1000px){.assistant-grid{grid-template-columns:1fr}.assistant-proposal{position:static;max-height:none}.assistant-messages{height:350px}.assistant-intro{padding:23px}.assistant-intro h2{font-size:22px}}
 @media(max-width:640px){.assistant-intro{padding:20px;gap:12px}.assistant-intro h2{font-size:21px;line-height:1.5}.assistant-intro p{font-size:11px}.assistant-spark{display:none}.assistant-chat,.assistant-proposal{padding:17px}.assistant-chat .panel-head h3{font-size:15px}.assistant-chat .panel-head p{font-size:10px}.assistant-messages{height:340px}.assistant-compose textarea{font-size:16px}.assistant-compose .row .small{max-width:190px;line-height:1.8}.assistant-message p{font-size:12px}.assistant-grid{gap:17px}}
 .place-foot{flex-wrap:wrap;gap:8px}.place-footer-actions{flex-wrap:wrap}.place-delete{gap:4px}.place-delete svg{width:13px;height:13px}
+
+/* Keep the globe mark clear at desktop, mobile, and initial loading sizes. */
+.brand-symbol{background:transparent;transform:none;box-shadow:none;flex-shrink:0;border-radius:0}
+.brand-symbol img{display:block;width:100%;height:100%;object-fit:contain}

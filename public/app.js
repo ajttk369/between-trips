@@ -18,7 +18,7 @@ const today = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).for
 const km = d => d == null ? '위치 미등록' : d < 1000 ? `${Math.round(d)}m` : `${(d/1000).toFixed(1)}km`;
 const act = (action, label, cls = 'btn secondary', attrs = '') => `<button type="button" class="${cls}" data-action="${action}" ${attrs}>${label}</button>`;
 const iBtn = (action, name, label, attrs = '') => act(action,icon(name),'icon-btn',`aria-label="${label}" title="${label}" ${attrs}`);
-const brand = `<div class="brand"><span class="brand-symbol">↗</span><div>여행의 사이<small>BETWEEN OUR TRIPS</small></div></div>`;
+const brand = `<div class="brand"><span class="brand-symbol"><img src="/travel-logo.png?v=1" width="38" height="38" alt=""></span><div>여행의 사이<small>BETWEEN OUR TRIPS</small></div></div>`;
 const state = { user:null, trips:[], trip:null, tab:'itinerary', day:'', filter:'all', category:'all', listFilter:'upcoming', selected:null, mapMode:false, config:{}, routes:{}, save:'저장 완료', stream:null, connected:false, aiChats:{}, aiDrafts:{}, aiDates:{}, aiSelections:{}, aiLocations:{}, aiExpanded:{}, reviewError:false, quickExpanded:false, mapWide:false };
 let modalRevision = null,locationPicker=null,locationMarker=null,mapRenderToken=0,pickerToken=0,googlePickerReady=Promise.resolve();
 function disposeLocationPicker(){pickerToken++;locationPicker?.remove();locationPicker=null;locationMarker=null;}
