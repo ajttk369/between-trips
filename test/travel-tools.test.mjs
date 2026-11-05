@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync} from 'node:fs';
+import {mkdtempSync,readFileSync,mkdirSync} from 'node:fs';
 import path from 'node:path';
 import {once} from 'node:events';
 import vm from 'node:vm';
@@ -56,7 +56,7 @@ test('서비스 워커는 API·외부 지도·인증 응답을 캐시하지 않�
   networkFails=true;let response;handlers.fetch({request:{url:'https://travel.test/',method:'GET',mode:'navigate'},respondWith:promise=>response=promise});assert.equal(await response,'CACHED:/offline.html');
 });
 test('공동 API에서 장소 일괄 추가·복사·첨부 공유·충돌 거절·외부인 차단·재시작을 검증한다',async t=>{
-  const dataDir=mkdtempSync(path.resolve('test-output/travel-tools-'));let app=createApp({dataDir});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');let base='http://127.0.0.1:'+app.server.address().port;t.after(()=>app.close());
+  mkdirSync(path.resolve('test-output'),{recursive:true});const dataDir=mkdtempSync(path.resolve('test-output/travel-tools-'));let app=createApp({dataDir});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');let base='http://127.0.0.1:'+app.server.address().port;t.after(()=>app.close());
   function client(){let cookie='';return async(route,method='GET',body)=>{const response=await fetch(base+'/api'+route,{method,headers:{'Content-Type':'application/json',Cookie:cookie},body:body?JSON.stringify(body):undefined});if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return {status:response.status,data:await response.json()};};}
   const a=client(),b=client(),other=client();for(const [call,name]of [[a,'a'],[b,'b'],[other,'other']])await call('/auth/register','POST',{name,email:name+'@tools.test',password:'password123!'});
   let trip=(await a('/trips','POST',meta)).data;const url='/trips/'+trip.id,invite=(await a(url+'/invites','POST',{})).data;trip=(await b('/join','POST',{code:invite.code})).data;
